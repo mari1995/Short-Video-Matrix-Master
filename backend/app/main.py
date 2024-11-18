@@ -11,7 +11,7 @@ from loguru import logger
 from app.core.config import settings
 from app.db.models import init_db as create_tables
 from app.db.init_db import init_db
-from app.api.v1.endpoints import login, users, dashboard, statistics, youtube, files
+from app.api.v1.endpoints import login, dashboard, statistics, youtube, files, video_analysis, system_config, image_analysis
 from app.db.base import SessionLocal
 from app.core.logger import logger
 from starlette.responses import JSONResponse
@@ -71,11 +71,7 @@ app.include_router(
     prefix=settings.API_V1_STR,
     tags=["认证管理"],
 )
-app.include_router(
-    users.router,
-    prefix=settings.API_V1_STR,
-    tags=["用户管理"],
-)
+
 app.include_router(
     dashboard.router,
     prefix=settings.API_V1_STR,
@@ -95,6 +91,21 @@ app.include_router(
     files.router,
     prefix=f"{settings.API_V1_STR}/files",
     tags=["文件管理"],
+)
+app.include_router(
+    video_analysis.router,
+    prefix=f"{settings.API_V1_STR}/video-analysis",
+    tags=["视频分析"],
+)
+app.include_router(
+    system_config.router,
+    prefix=f"{settings.API_V1_STR}/system-config",
+    tags=["配置中心"],
+)
+app.include_router(
+    image_analysis.router,
+    prefix=f"{settings.API_V1_STR}/image-analysis",
+    tags=["图片分析"],
 )
 
 @app.get("/")

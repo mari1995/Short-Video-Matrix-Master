@@ -2,7 +2,6 @@ from typing import Any
 from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from app.core.deps import get_current_active_user
 from app.db.base import get_db
 from app.db.models.user import User
 from app.db.models.operation_log import OperationLog
@@ -12,8 +11,7 @@ router = APIRouter()
 
 @router.get("/dashboard/stats")
 def get_dashboard_stats(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ) -> Any:
     """获取仪表盘统计数据"""
     # 获取用户总数

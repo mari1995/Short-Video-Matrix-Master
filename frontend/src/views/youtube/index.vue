@@ -229,6 +229,20 @@
 </template>
 
 <script>
+import { 
+  getVideoInfo, 
+  downloadVideo, 
+  getDownloadList, 
+  getDownloadStatus, 
+  cancelDownload 
+} from '@/api/youtube'
+import {
+  getDownloadHistory,
+  deleteDownloadHistory,
+  clearDownloadHistory,
+  getDownloadStats
+} from '@/api/youtube-history'
+
 export default {
   name: 'YoutubeDownloader',
   data() {
@@ -387,9 +401,10 @@ export default {
       this.historyLoading = true
       try {
         const skip = (this.currentPage - 1) * this.pageSize
-        const response = await this.$axios.get(
-          `/api/v1/youtube/history?skip=${skip}&limit=${this.pageSize}`
-        )
+        const response = await getDownloadHistory({
+          skip,
+          limit: this.pageSize
+        })
         this.downloadHistory = response.data.items
         this.totalHistory = response.data.total
       } catch (error) {

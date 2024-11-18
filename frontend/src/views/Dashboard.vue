@@ -1,179 +1,175 @@
 <template>
-  <div class="dashboard-container">
-    <!-- 统计卡片 -->
+  <div class="dashboard">
     <el-row :gutter="20">
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="card-header">
-            <i class="el-icon-user"></i>
-            <span>用户总数</span>
+      <!-- 统计卡片 -->
+      <el-col :span="6" v-for="(item, index) in statistics" :key="index">
+        <el-card class="stat-card" shadow="hover">
+          <div class="stat-icon">
+            <i :class="item.icon"></i>
           </div>
-          <div class="card-number">{{ stats.total_users || 0 }}</div>
-          <div class="card-footer">
-            本周新增: {{ stats.new_users_this_week || 0 }}
+          <div class="stat-info">
+            <div class="stat-title">{{ item.title }}</div>
+            <div class="stat-value">{{ item.value }}</div>
           </div>
-        </el-card>
-      </el-col>
-      <el-col :span="6">
-        <el-card shadow="hover" class="stat-card">
-          <div class="card-header">
-            <i class="el-icon-data-line"></i>
-            <span>今日活跃用户</span>
-          </div>
-          <div class="card-number">{{ stats.today_active_users || 0 }}</div>
         </el-card>
       </el-col>
     </el-row>
 
-    <!-- 趋势图表 -->
-    <el-row :gutter="20" class="chart-row">
-      <el-col :span="24">
-        <el-card shadow="hover">
-          <div slot="header">
-            <span>用户增长趋势</span>
-          </div>
-          <div class="chart-container" ref="userTrendChart"></div>
-        </el-card>
-      </el-col>
-    </el-row>
+    <!-- 最近分析记录 -->
+    <el-card class="recent-analyses" style="margin-top: 20px;">
+      <div slot="header">
+        <span>最近分析记录</span>
+      </div>
+      <el-table
+        :data="recentAnalyses"
+        v-loading="loading"
+        style="width: 100%"
+      >
+        <el-table-column
+          prop="file_name"
+          label="文件名"
+          min-width="200"
+        />
+        <el-table-column
+          prop="created_at"
+          label="创建时间"
+          width="180"
+        >
+          <template slot-scope="scope">
+            {{ formatDate(scope.row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column
+          prop="status"
+          label="状态"
+          width="100"
+        >
+          <template slot-scope="scope">
+            <el-tag :type="getStatusType(scope.row.status)">
+              {{ getStatusText(scope.row.status) }}
+            </el-tag>
+          </template>
+        </el-table-column>
+      </el-table>
+    </el-card>
   </div>
 </template>
 
 <script>
-import * as echarts from 'echarts'
-import { getStatisticsOverview } from '@/api/statistics'
+import { getStatistics, getRecentAnalyses } from '@/api/statistics'
 
 export default {
   name: 'Dashboard',
+  
   data() {
     return {
-      stats: {
-        total_users: 0,
-        today_active_users: 0,
-        new_users_this_week: 0,
-        user_trend: []
-      },
-      userTrendChart: null
+      loading: false,
+      statistics: [
+        { title: '总分析次数', value: 0, icon: 'el-icon-data-analysis' },
+        { title: '今日分析', value: 0, icon: 'el-icon-time' },
+        { title: '视频数量', value: 0, icon: 'el-icon-video-camera' },
+        { title: '图片数量', value: 0, icon: 'el-icon-picture' }
+      ],
+      recentAnalyses: []
     }
   },
+
+  created() {
+    this.fetchData()
+  },
+
   methods: {
     async fetchData() {
+      this.loading = true
       try {
-        const token = this.$store.state.token
-        if (!token) {
-          this.$message.error('请先登录')
-          this.$router.push('/login')
-          return
-        }
+        // 获取统计数据
+        const statsRes = await getStatistics()
+        const stats = statsRes.data
+        
+        // 更新统计卡片数据
+        this.statistics[0].value = stats.total_analyses || 0
+        this.statistics[1].value = stats.today_analyses || 0
+        this.statistics[2].value = stats.video_count || 0
+        this.statistics[3].value = stats.image_count || 0
 
-        const data = await getStatisticsOverview()
-        this.stats = data
-        this.initUserTrendChart()
+        // 获取最近分析记录
+        const recentRes = await getRecentAnalyses()
+        this.recentAnalyses = recentRes.data.items || []
+
       } catch (error) {
-        console.error('获取统计数据失败:', error)
-        if (error.response?.status === 401) {
-          this.$message.error('登录已过期，请重新登录')
-          this.$store.dispatch('logout')
-          this.$router.push('/login')
-        } else {
-          this.$message.error('获取统计数据失败')
-        }
+        console.error('Error fetching dashboard data:', error)
+        this.$message.error('获取统计数据失败')
+      } finally {
+        this.loading = false
       }
     },
-    initUserTrendChart() {
-      if (this.userTrendChart) {
-        this.userTrendChart.dispose()
+
+    formatDate(timestamp) {
+      return new Date(timestamp * 1000).toLocaleString()
+    },
+
+    getStatusType(status) {
+      const types = {
+        completed: 'success',
+        processing: 'warning',
+        failed: 'danger'
       }
-      
-      this.userTrendChart = echarts.init(this.$refs.userTrendChart)
-      
-      const option = {
-        tooltip: {
-          trigger: 'axis'
-        },
-        xAxis: {
-          type: 'category',
-          data: this.stats.user_trend.map(item => item.date),
-          axisLabel: {
-            rotate: 45
-          }
-        },
-        yAxis: {
-          type: 'value',
-          minInterval: 1
-        },
-        series: [{
-          name: '新增用户',
-          type: 'line',
-          smooth: true,
-          data: this.stats.user_trend.map(item => item.value),
-          areaStyle: {
-            opacity: 0.3
-          }
-        }]
+      return types[status] || 'info'
+    },
+
+    getStatusText(status) {
+      const texts = {
+        completed: '完成',
+        processing: '处理中',
+        failed: '失败'
       }
-      
-      this.userTrendChart.setOption(option)
+      return texts[status] || status
     }
-  },
-  mounted() {
-    this.fetchData()
-    window.addEventListener('resize', () => {
-      if (this.userTrendChart) {
-        this.userTrendChart.resize()
-      }
-    })
-  },
-  beforeDestroy() {
-    if (this.userTrendChart) {
-      this.userTrendChart.dispose()
-    }
-    window.removeEventListener('resize', this.userTrendChart.resize)
   }
 }
 </script>
 
-<style lang="scss" scoped>
-.dashboard-container {
+<style scoped>
+.dashboard {
   padding: 20px;
-  
-  .stat-card {
-    .card-header {
-      display: flex;
-      align-items: center;
-      margin-bottom: 15px;
-      
-      i {
-        font-size: 20px;
-        margin-right: 10px;
-        color: #409EFF;
-      }
-      
-      span {
-        font-size: 16px;
-        color: #606266;
-      }
-    }
-    
-    .card-number {
-      font-size: 28px;
-      font-weight: bold;
-      color: #303133;
-      margin-bottom: 10px;
-    }
-    
-    .card-footer {
-      font-size: 14px;
-      color: #909399;
-    }
-  }
-  
-  .chart-row {
-    margin-top: 20px;
-    
-    .chart-container {
-      height: 400px;
-    }
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  padding: 20px;
+}
+
+.stat-icon {
+  font-size: 48px;
+  margin-right: 20px;
+  color: #409EFF;
+}
+
+.stat-info {
+  flex-grow: 1;
+}
+
+.stat-title {
+  font-size: 14px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: bold;
+  color: #303133;
+}
+
+.recent-analyses {
+  margin-top: 20px;
+}
+
+/* 响应式布局 */
+@media (max-width: 1200px) {
+  .el-col {
+    margin-bottom: 20px;
   }
 }
 </style> 

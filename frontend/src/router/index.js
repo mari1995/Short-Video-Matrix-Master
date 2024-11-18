@@ -1,10 +1,11 @@
 import Vue from 'vue'
-import VueRouter from 'vue-router'
+import Router from 'vue-router'
+import { getToken } from '@/utils/auth'
 import store from '@/store'
 import Login from '../views/Login.vue'
 import YoutubeDownloader from '@/views/youtube/index.vue'
 
-Vue.use(VueRouter)
+Vue.use(Router)
 
 const routes = [
   {
@@ -38,21 +39,42 @@ const routes = [
         name: 'Files',
         component: () => import('../views/files/index.vue'),
         meta: { title: '文件管理', icon: 'el-icon-folder' }
+      },
+      {
+        path: '/video-analysis',
+        name: 'VideoAnalysis',
+        component: () => import('../views/video-analysis/index.vue'),
+        meta: { title: '视频分析', icon: 'el-icon-film' }
+      },
+      {
+        path: '/settings',
+        name: 'Settings',
+        component: () => import('../views/settings/index.vue'),
+        meta: { title: '配置中心', icon: 'el-icon-setting' }
       }
     ]
   }
 ]
 
-const router = new VueRouter({
+const router = new Router({
   routes
 })
 
-router.beforeEach((to, from, next) => {
-  const token = store.state.token
-  if (!to.meta.public && !token) {
-    next('/login')
+router.beforeEach(async(to, from, next) => {
+  const hasToken = getToken()
+
+  if (hasToken) {
+    if (to.path === '/login') {
+      next({ path: '/' })
+    } else {
+      next()
+    }
   } else {
-    next()
+    if (to.path === '/login') {
+      next()
+    } else {
+      next(`/login?redirect=${to.path}`)
+    }
   }
 })
 

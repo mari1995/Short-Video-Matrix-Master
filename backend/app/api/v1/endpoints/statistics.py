@@ -2,7 +2,6 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import func
 from sqlalchemy.orm import Session
-from app.core.deps import get_current_active_user
 from app.db.base import get_db
 from app.db.models.user import User
 from app.db.models.operation_log import OperationLog
@@ -13,8 +12,7 @@ router = APIRouter()
 
 @router.get("/statistics/overview")
 async def get_statistics_overview(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user)
+    db: Session = Depends(get_db)
 ) -> Any:
     """获取系统概览统计数据"""
     try:

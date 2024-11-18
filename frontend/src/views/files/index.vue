@@ -45,7 +45,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="120" fixed="right">
+        <el-table-column label="操作" width="200" fixed="right">
           <template slot-scope="scope">
             <el-button
               type="text"
@@ -62,6 +62,15 @@
               @click="handleDownload(scope.row)"
             >
               下载
+            </el-button>
+            <el-button
+              v-if="isImageFile(scope.row)"
+              type="text"
+              size="small"
+              @click="handleAnalyzeImage(scope.row)"
+              :loading="analyzing === scope.row.path"
+            >
+              解析图片描述
             </el-button>
           </template>
         </el-table-column>
@@ -92,10 +101,46 @@
         <el-button type="primary" @click="handleDownload(currentFile)">下载</el-button>
       </span>
     </el-dialog>
+
+    <!-- 添加图片解析结果对话框 -->
+    <el-dialog
+      title="图片解析结果"
+      :visible.sync="showAnalysisResult"
+      width="600px"
+    >
+      <div v-if="analysisResult" class="analysis-result">
+        <div class="image-preview">
+          <img :src="`${baseUrl}/${currentAnalyzedFile?.path}`" class="preview-image">
+        </div>
+        <div class="result-content">
+          <div v-if="analysisResult.descriptions && analysisResult.descriptions.length" class="result-item">
+            <div class="description-container">
+              <div class="description-header">
+                <span class="description-title">图片描述：</span>
+                <el-button 
+                  type="text" 
+                  size="small" 
+                  @click="copyDescription(analysisResult.descriptions[0].text)"
+                  class="copy-btn"
+                >
+                  <i class="el-icon-document-copy"></i> 复制
+                </el-button>
+              </div>
+              <div class="description-content">
+                {{ analysisResult.descriptions[0].text }}
+              </div>
+            </div>
+          </div>
+          <el-empty v-else description="无解析结果"></el-empty>
+        </div>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script>
+import { analyzeImage } from '@/api/image'
+
 export default {
   name: 'FileManager',
   data() {
@@ -106,7 +151,11 @@ export default {
       showVideoPreview: false,
       currentFile: null,
       videoUrl: '',
-      baseUrl: process.env.VUE_APP_BASE_API || ''
+      baseUrl: process.env.VUE_APP_BASE_API || '',
+      analyzing: null,
+      showAnalysisResult: false,
+      analysisResult: null,
+      currentAnalyzedFile: null
     }
   },
   computed: {
@@ -239,6 +288,44 @@ export default {
     
     getPathUpTo(index) {
       return ['static', ...this.pathParts.slice(0, index + 1)].join('/')
+    },
+    
+    isImageFile(file) {
+      const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp']
+      const ext = file.name.split('.').pop().toLowerCase()
+      return imageExts.includes(ext)
+    },
+    
+    async handleAnalyzeImage(file) {
+      this.analyzing = file.path
+      try {
+        const formData = new FormData()
+        const response = await fetch(file.url)
+        const blob = await response.blob()
+        formData.append('image_file', blob, file.name)
+        
+        const result = await analyzeImage(formData)
+        this.analysisResult = result.data
+        this.currentAnalyzedFile = file
+        this.showAnalysisResult = true
+        
+      } catch (error) {
+        this.$message.error(error.response?.data?.detail || '图片解析失败')
+      } finally {
+        this.analyzing = null
+      }
+    },
+    
+    copyDescription(text) {
+      navigator.clipboard.writeText(text).then(() => {
+        this.$message({
+          message: '描述文本已复制到剪贴板',
+          type: 'success',
+          duration: 2000
+        });
+      }).catch(() => {
+        this.$message.error('复制失败，请手动复制');
+      });
     }
   }
 }
@@ -336,5 +423,99 @@ export default {
 
 .preview-btn:hover {
   color: #66b1ff;
+}
+
+.analysis-result {
+  padding: 20px;
+}
+
+.image-preview {
+  text-align: center;
+  margin-bottom: 20px;
+}
+
+.preview-image {
+  max-width: 100%;
+  max-height: 300px;
+  border-radius: 4px;
+}
+
+.result-content {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+}
+
+.result-item {
+  margin-bottom: 15px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.result-item:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.description {
+  margin: 5px 0;
+  color: #303133;
+  line-height: 1.6;
+}
+
+.resolution {
+  margin: 5px 0;
+  color: #909399;
+  font-size: 12px;
+}
+
+.description-container {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 15px;
+}
+
+.description-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.description-title {
+  font-weight: bold;
+  color: #303133;
+}
+
+.description-content {
+  color: #606266;
+  line-height: 1.6;
+  margin: 10px 0;
+  padding: 10px;
+  background: #fff;
+  border-radius: 4px;
+  border: 1px solid #ebeef5;
+}
+
+.copy-btn {
+  padding: 0;
+}
+
+.copy-btn:hover {
+  color: #409EFF;
+}
+
+.meta-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.resolution {
+  color: #909399;
+  font-size: 12px;
 }
 </style> 

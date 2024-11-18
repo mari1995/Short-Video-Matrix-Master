@@ -1,6 +1,6 @@
 # Short-Video-Matrix-Master
 
-Short-Video-Matrix-Master是一个现代化的管理平台，基于 **Vue + Element UI + FastAPI + SQLite** 构建，旨在提供高效、灵活的短视频矩阵管理解决方案。
+Short-Video-Matrix-Master是一个现代化的管理平台，基于 **Vue + Element UI + FastAPI + SQLite** 构建，旨在提供高效、灵活的短视频矩阵管理解决方案，支持YouTube短视频的管理与下载。
 
 ## 特点与优势
 
@@ -9,6 +9,7 @@ Short-Video-Matrix-Master是一个现代化的管理平台，基于 **Vue + Elem
 - **全面的用户管理**：提供用户列表、添加、编辑、删除及角色分配功能，方便管理员管理用户信息。
 - **系统监控功能**：实时监控系统大盘数据，访问统计和操作日志，帮助管理员及时了解系统状态。
 - **个人中心**：用户可以查看个人信息、修改密码和进行基本设置，提升用户体验。
+- **YouTube短视频支持**：集成YouTube短视频下载功能，方便用户获取短视频内容。
 
 ## 技术栈
 

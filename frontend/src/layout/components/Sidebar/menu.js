@@ -5,6 +5,11 @@ export const menuItems = [
     path: '/dashboard'
   },
   {
+    title: '配置中心',
+    icon: 'el-icon-setting',
+    path: '/settings'
+  },
+  {
     title: '工具箱',
     icon: 'el-icon-s-tools',
     children: [
@@ -19,6 +24,11 @@ export const menuItems = [
         path: '/files'
       }
     ]
+  },
+  {
+    title: '视频分析',
+    icon: 'el-icon-film',
+    path: '/video-analysis'
   }
 ];
 

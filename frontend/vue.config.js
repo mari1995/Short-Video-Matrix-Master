@@ -9,12 +9,8 @@ module.exports = defineConfig({
       '/api': {
         target: 'http://127.0.0.1:8000',
         changeOrigin: true,
-        ws: true,
         pathRewrite: {
-          '^/api': '/api'
-        },
-        headers: {
-          'Access-Control-Allow-Origin': '*'
+          '^/api': ''
         }
       }
     }

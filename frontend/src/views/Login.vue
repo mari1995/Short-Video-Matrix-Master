@@ -1,45 +1,65 @@
 <template>
   <div class="login-container">
-    <el-card class="login-card">
-      <div class="title">管理后台系统</div>
-      <el-form
-        ref="loginForm"
-        :model="loginForm"
-        :rules="loginRules"
-        class="login-form"
+    <el-form
+      ref="loginForm"
+      :model="loginForm"
+      :rules="loginRules"
+      class="login-form"
+      autocomplete="on"
+      label-position="left"
+    >
+      <div class="title-container">
+        <h3 class="title">管理系统登录</h3>
+      </div>
+
+      <el-form-item prop="username">
+        <span class="svg-container">
+          <i class="el-icon-user"></i>
+        </span>
+        <el-input
+          ref="username"
+          v-model="loginForm.username"
+          placeholder="用户名"
+          name="username"
+          type="text"
+          tabindex="1"
+          autocomplete="on"
+        />
+      </el-form-item>
+
+      <el-form-item prop="password">
+        <span class="svg-container">
+          <i class="el-icon-lock"></i>
+        </span>
+        <el-input
+          :key="passwordType"
+          ref="password"
+          v-model="loginForm.password"
+          :type="passwordType"
+          placeholder="密码"
+          name="password"
+          tabindex="2"
+          autocomplete="on"
+          @keyup.enter.native="handleLogin"
+        />
+        <span class="show-pwd" @click="showPwd">
+          <i :class="passwordType === 'password' ? 'el-icon-view' : 'el-icon-hide'"></i>
+        </span>
+      </el-form-item>
+
+      <el-button
+        :loading="loading"
+        type="primary"
+        style="width:100%;margin-bottom:30px;"
+        @click.native.prevent="handleLogin"
       >
-        <el-form-item prop="username">
-          <el-input
-            v-model="loginForm.username"
-            placeholder="用户名"
-            prefix-icon="el-icon-user"
-          />
-        </el-form-item>
-        <el-form-item prop="password">
-          <el-input
-            v-model="loginForm.password"
-            type="password"
-            placeholder="密码"
-            prefix-icon="el-icon-lock"
-            @keyup.enter.native="handleLogin"
-          />
-        </el-form-item>
-        <el-button
-          :loading="loading"
-          type="primary"
-          class="login-button"
-          @click="handleLogin"
-        >
-          登录
-        </el-button>
-      </el-form>
-    </el-card>
+        登录
+      </el-button>
+    </el-form>
   </div>
 </template>
 
 <script>
-import { login } from '@/api/auth'
-
 export default {
   name: 'Login',
   data() {
@@ -49,58 +69,142 @@ export default {
         password: ''
       },
       loginRules: {
-        username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
-        password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+        username: [{ required: true, trigger: 'blur', message: '请输入用户名' }],
+        password: [{ required: true, trigger: 'blur', message: '请输入密码' }]
       },
-      loading: false
+      passwordType: 'password',
+      loading: false,
+      redirect: undefined,
+      otherQuery: {}
+    }
+  },
+  watch: {
+    $route: {
+      handler: function(route) {
+        const query = route.query
+        if (query) {
+          this.redirect = query.redirect
+          this.otherQuery = this.getOtherQuery(query)
+        }
+      },
+      immediate: true
     }
   },
   methods: {
-    async handleLogin() {
-      try {
-        await this.$refs.loginForm.validate()
-        this.loading = true
-        
-        const response = await login(this.loginForm)
-        if (response.access_token) {
-          this.$store.commit('SET_TOKEN', response.access_token)
-          await this.$router.push('/')
-          this.$message.success('登录成功')
+    showPwd() {
+      this.passwordType = this.passwordType === 'password' ? '' : 'password'
+      this.$nextTick(() => {
+        this.$refs.password.focus()
+      })
+    },
+    handleLogin() {
+      this.$refs.loginForm.validate(valid => {
+        if (valid) {
+          this.loading = true
+          this.$store.dispatch('user/login', this.loginForm)
+            .then(() => {
+              this.$router.push({ path: this.redirect || '/' })
+              this.loading = false
+            })
+            .catch(error => {
+              this.$message.error(error.response?.data?.detail || '登录失败')
+              this.loading = false
+            })
         }
-      } catch (error) {
-        console.error('登录错误:', error)
-        this.$message.error(error.response?.data?.detail || '登录失败')
-      } finally {
-        this.loading = false
-      }
+      })
+    },
+    getOtherQuery(query) {
+      return Object.keys(query).reduce((acc, cur) => {
+        if (cur !== 'redirect') {
+          acc[cur] = query[cur]
+        }
+        return acc
+      }, {})
     }
   }
 }
 </script>
 
 <style lang="scss" scoped>
-.login-container {
-  height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background-color: #f3f3f3;
+$bg: #283443;
+$light_gray: #eee;
+$cursor: #fff;
 
-  .login-card {
-    width: 400px;
-    padding: 20px;
+@supports (-webkit-mask: none) and (not (cater-color: $cursor)) {
+  .login-container .el-input input {
+    color: $cursor;
+  }
+}
+
+.login-container {
+  min-height: 100%;
+  width: 100%;
+  background-color: $bg;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .login-form {
+    position: relative;
+    width: 520px;
+    max-width: 100%;
+    padding: 160px 35px 0;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+
+  .title-container {
+    position: relative;
 
     .title {
+      font-size: 26px;
+      color: $light_gray;
+      margin: 0px auto 40px auto;
       text-align: center;
-      font-size: 24px;
       font-weight: bold;
-      margin-bottom: 30px;
     }
+  }
 
-    .login-form {
-      .login-button {
-        width: 100%;
-      }
+  .svg-container {
+    padding: 6px 5px 6px 15px;
+    color: $light_gray;
+    vertical-align: middle;
+    width: 30px;
+    display: inline-block;
+  }
+
+  .show-pwd {
+    position: absolute;
+    right: 10px;
+    top: 7px;
+    font-size: 16px;
+    color: $light_gray;
+    cursor: pointer;
+    user-select: none;
+  }
+
+  .el-form-item {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 5px;
+    color: #454545;
+  }
+
+  .el-input {
+    display: inline-block;
+    height: 47px;
+    width: 85%;
+
+    input {
+      background: transparent;
+      border: 0px;
+      -webkit-appearance: none;
+      border-radius: 0px;
+      padding: 12px 5px 12px 15px;
+      color: $light_gray;
+      height: 47px;
+      caret-color: $cursor;
     }
   }
 }
