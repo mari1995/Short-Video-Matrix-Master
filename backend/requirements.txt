@@ -5,4 +5,6 @@ sqlalchemy>=1.4.0
 python-jose[cryptography]>=3.3.0
 passlib[bcrypt]>=1.7.4
 python-multipart>=0.0.5
-aiosqlite>=0.17.0 
+aiosqlite>=0.17.0
+yt-dlp>=2023.12.30
+ffmpeg-python>=0.2.0 

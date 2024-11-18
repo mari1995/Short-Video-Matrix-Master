@@ -9,10 +9,37 @@
         active-text-color="#409EFF"
         router
       >
-        <el-menu-item index="/dashboard">
-          <i class="el-icon-s-home"></i>
-          <span slot="title">首页</span>
-        </el-menu-item>
+        <template v-for="item in menuItems">
+          <!-- 有子菜单的情况 -->
+          <el-submenu 
+            v-if="item.children" 
+            :index="item.path || item.title" 
+            :key="item.title"
+          >
+            <template slot="title">
+              <i :class="item.icon"></i>
+              <span>{{ item.title }}</span>
+            </template>
+            <el-menu-item 
+              v-for="child in item.children"
+              :key="child.path"
+              :index="child.path"
+            >
+              <i :class="child.icon"></i>
+              <span>{{ child.title }}</span>
+            </el-menu-item>
+          </el-submenu>
+          
+          <!-- 没有子菜单的情况 -->
+          <el-menu-item 
+            v-else 
+            :index="item.path"
+            :key="item.path"
+          >
+            <i :class="item.icon"></i>
+            <span slot="title">{{ item.title }}</span>
+          </el-menu-item>
+        </template>
       </el-menu>
     </el-aside>
     
@@ -37,6 +64,19 @@
     </el-container>
   </el-container>
 </template>
+
+<script>
+import { menuItems } from './components/Sidebar/menu'
+
+export default {
+  name: 'Layout',
+  data() {
+    return {
+      menuItems
+    }
+  }
+}
+</script>
 
 <style scoped>
 .layout-container {

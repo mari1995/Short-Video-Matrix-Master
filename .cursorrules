@@ -1,5 +1,7 @@
 通用管理后台系统，基于 Vue + Element UI + FastAPI + SQLite 的现代化管理后台系统。
 
+前后端交互通过 http 请求,使用 restful 风格,采用 json 格式
+
 项目结构，如下
 ```
 project/

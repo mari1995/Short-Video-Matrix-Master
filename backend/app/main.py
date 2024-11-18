@@ -11,7 +11,7 @@ from loguru import logger
 from app.core.config import settings
 from app.db.models import init_db as create_tables
 from app.db.init_db import init_db
-from app.api.v1.endpoints import login, users, dashboard, statistics
+from app.api.v1.endpoints import login, users, dashboard, statistics, youtube, files
 from app.db.base import SessionLocal
 from app.core.logger import logger
 from starlette.responses import JSONResponse
@@ -25,6 +25,8 @@ app = FastAPI(
     redoc_url=None  # 禁用默认的 /redoc
 )
 
+# 挂载静态文件目录
+app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # 配置 CORS
 app.add_middleware(
@@ -83,6 +85,16 @@ app.include_router(
     statistics.router,
     prefix=settings.API_V1_STR,
     tags=["统计数据"],
+)
+app.include_router(
+    youtube.router,
+    prefix=f"{settings.API_V1_STR}/youtube",
+    tags=["YouTube下载器"],
+)
+app.include_router(
+    files.router,
+    prefix=f"{settings.API_V1_STR}/files",
+    tags=["文件管理"],
 )
 
 @app.get("/")
