@@ -139,7 +139,7 @@
 </template>
 
 <script>
-import { analyzeImage } from '@/api/image'
+import { getFileList, deleteFile, downloadFile, analyzeImage } from '@/api/files'
 
 export default {
   name: 'FileManager',
@@ -182,7 +182,7 @@ export default {
     async loadFiles() {
       this.loading = true
       try {
-        const response = await this.$axios.get(`/api/v1/files/list?path=${this.currentPath}`)
+        const response = await getFileList({ path: this.currentPath })
         this.fileList = response.data.items
       } catch (error) {
         this.$message.error('加载文件列表失败')
@@ -255,7 +255,7 @@ export default {
           type: 'warning'
         })
         
-        await this.$axios.delete(`/api/v1/files/delete?path=${file.path}`)
+        await deleteFile(file.path)
         this.$message.success('删除成功')
         this.loadFiles()
       } catch (error) {

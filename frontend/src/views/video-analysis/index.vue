@@ -52,20 +52,13 @@
         />
         
         <el-table-column
-          prop="duration"
           label="时长"
-          width="100"
+          width="120"
         >
           <template slot-scope="scope">
             {{ formatDuration(scope.row.duration) }}
           </template>
         </el-table-column>
-        
-        <el-table-column
-          prop="frame_count"
-          label="总帧数"
-          width="100"
-        />
         
         <el-table-column
           prop="status"
@@ -80,6 +73,16 @@
         </el-table-column>
         
         <el-table-column
+          prop="created_at"
+          label="创建时间"
+          width="180"
+        >
+          <template slot-scope="scope">
+            {{ formatDate(scope.row.created_at) }}
+          </template>
+        </el-table-column>
+        
+        <el-table-column
           label="操作"
           width="150"
           fixed="right"
@@ -89,9 +92,16 @@
               type="text"
               size="small"
               @click="viewAnalysis(scope.row)"
-              :disabled="scope.row.status !== 'completed'"
             >
-              查看分析
+              查看
+            </el-button>
+            <el-button
+              type="text"
+              size="small"
+              class="delete-btn"
+              @click="handleDelete(scope.row)"
+            >
+              删除
             </el-button>
           </template>
         </el-table-column>
@@ -116,50 +126,61 @@
       class="analysis-dialog"
     >
       <div v-if="currentAnalysis" class="analysis-content">
-        <div class="analysis-info">
-          <h3>视频信息</h3>
-          <p>文件名：{{ currentAnalysis.file_name }}</p>
-          <p>分辨率：{{ currentAnalysis.resolution }}</p>
-          <p>时长：{{ formatDuration(currentAnalysis.duration) }}</p>
-          <p>帧率：{{ currentAnalysis.fps }} fps</p>
-          <p>总帧数：{{ currentAnalysis.frame_count }}</p>
-        </div>
+        <!-- 视频基本信息 -->
+        <el-descriptions title="视频信息" :column="3" border>
+          <el-descriptions-item label="文件名">{{ currentAnalysis.file_name }}</el-descriptions-item>
+          <el-descriptions-item label="分辨率">{{ currentAnalysis.resolution }}</el-descriptions-item>
+          <el-descriptions-item label="时长">{{ formatDuration(currentAnalysis.duration) }}</el-descriptions-item>
+          <el-descriptions-item label="帧率">{{ currentAnalysis.fps }} FPS</el-descriptions-item>
+          <el-descriptions-item label="总帧数">{{ currentAnalysis.frame_count }}</el-descriptions-item>
+          <el-descriptions-item label="状态">
+            <el-tag :type="getStatusType(currentAnalysis.status)">
+              {{ getStatusText(currentAnalysis.status) }}
+            </el-tag>
+          </el-descriptions-item>
+        </el-descriptions>
 
-        <div class="frames-grid">
-          <h3>关键帧 ({{ currentAnalysis.frames_data?.length || 0 }})</h3>
+        <!-- 关键帧列表 -->
+        <div v-if="currentAnalysis.frames_data" class="frames-grid">
+          <h3>关键帧 ({{ currentAnalysis.frames_data.length }})</h3>
           <el-row :gutter="20">
             <el-col 
-              :span="getFrameSpan(frame)"
+              :span="4" 
               v-for="frame in currentAnalysis.frames_data" 
               :key="frame.frame_number"
             >
-              <el-card :body-style="{ padding: '0px' }">
-                <div 
-                  class="frame-image-container"
-                  :class="getAspectRatioClass(frame)"
-                >
-                  <img 
-                    :src="frame.url" 
-                    class="frame-image"
-                    @load="onImageLoad($event, frame)"
-                  >
+              <el-card :body-style="{ padding: '0px' }" class="frame-card">
+                <div class="frame-image-container">
+                  <div class="frame-image-wrapper">
+                    <img 
+                      :src="frame.url" 
+                      class="frame-image"
+                      @load="onFrameImageLoad($event, frame)"
+                    >
+                  </div>
                 </div>
                 <div class="frame-info">
                   <p>帧号：{{ frame.frame_number }}</p>
                   <p>时间点：{{ formatDuration(frame.timestamp) }}</p>
                   <p v-if="frame.diff_score">差异度：{{ frame.diff_score.toFixed(2) }}</p>
-                  <p>分辨率：{{ frame.resolution || '加载中...' }}</p>
-                  <p>比例：{{ frame.aspectRatio || '计算中...' }}</p>
-                  
-                  <!-- 添加解析图片描述按钮 -->
-                  <el-button 
-                    type="text" 
-                    size="small" 
-                    @click="handleAnalyzeFrame(frame)"
-                    :loading="frame.analyzing"
-                  >
-                    {{ frame.descriptions ? '查看描述' : '解析图片描述' }}
-                  </el-button>
+                  <div class="frame-actions">
+                    <el-button 
+                      type="text" 
+                      size="small" 
+                      @click="handleAnalyzeFrame(frame)"
+                      :loading="frame.analyzing"
+                    >
+                      {{ frame.descriptions ? '查看描述' : '解析描述' }}
+                    </el-button>
+                    <el-button
+                      type="text"
+                      size="small"
+                      @click="addToDrafts(frame)"
+                      :loading="frame.addingToDrafts"
+                    >
+                      添加到草稿箱
+                    </el-button>
+                  </div>
                 </div>
               </el-card>
             </el-col>
@@ -214,6 +235,7 @@
 import { API_URL } from '@/config/api.config'
 import { uploadVideo, getAnalysisList, getAnalysisDetail } from '@/api/video'
 import { analyzeImage } from '@/api/image'
+import { addToDrafts, addToDraftsByUrl } from '@/api/drafts'  // 导入草稿箱API
 
 export default {
   name: 'VideoAnalysis',
@@ -283,18 +305,25 @@ export default {
     async viewAnalysis(analysis) {
       try {
         const response = await getAnalysisDetail(analysis.id)
+        console.log('Analysis detail:', response.data)  // 添加日志
         this.currentAnalysis = response.data
         this.showAnalysis = true
       } catch (error) {
+        console.error('Error fetching analysis:', error)  // 添加错误日志
         this.$message.error('获取分析结果失败')
       }
     },
     
     formatDuration(seconds) {
-      if (!seconds) return '0:00'
+      if (!seconds) return '未知'
       const minutes = Math.floor(seconds / 60)
-      const remainingSeconds = Math.round(seconds % 60)
+      const remainingSeconds = Math.floor(seconds % 60)
       return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`
+    },
+    
+    formatDate(timestamp) {
+      if (!timestamp) return ''
+      return new Date(timestamp * 1000).toLocaleString()
     },
     
     getStatusType(status) {
@@ -396,7 +425,7 @@ export default {
           duration: 2000
         });
       }).catch(() => {
-        this.$message.error('复制失败，请手动复制');
+        this.$message.error('复制失，请手动复制');
       });
     },
     
@@ -417,12 +446,8 @@ export default {
       this.$set(frame, 'analyzing', true)
       
       try {
-        const formData = new FormData()
-        const response = await fetch(frame.url)
-        const blob = await response.blob()
-        formData.append('image_file', blob, 'frame.jpg')
-        
-        const result = await analyzeImage(formData)
+        // 直接传递图片URL
+        const result = await analyzeImage(frame.url)
         this.$set(frame, 'descriptions', result.data.descriptions)
         this.currentFrame = { ...frame }
         this.showFrameAnalysis = true
@@ -444,11 +469,75 @@ export default {
     handleImageError() {
       this.$message.error('图片加载失败')
     },
+    
+    async addToDrafts(frame) {
+      this.$set(frame, 'addingToDrafts', true)
+      try {
+        const formData = new FormData()
+        formData.append('source_url', frame.url)
+        formData.append('title', `视频帧 ${frame.frame_number} - ${this.currentAnalysis.file_name}`)
+        
+        // 如果有图片描述，使用描述作为草稿描述
+        let description = ''
+        if (frame.descriptions && frame.descriptions.length > 0) {
+          description = frame.descriptions[0].text
+        } else {
+          description = `来自视频 ${this.currentAnalysis.file_name} 的第 ${frame.frame_number} 帧`
+        }
+        formData.append('description', description)
+        
+        // 调用通过URL添加的接口
+        await addToDraftsByUrl(formData)
+        this.$message.success('已添加到草稿箱')
+      } catch (error) {
+        console.error('Add to drafts error:', error)
+        this.$message.error(error.response?.data?.detail || '添加到草稿箱失败')
+      } finally {
+        this.$set(frame, 'addingToDrafts', false)
+      }
+    },
+    
+    handleAnalysisDialogClose() {
+      // 清理当前分析数据
+      this.currentAnalysis = null
+      // 重置其他相关状态
+      this.analyzing = false
+      this.showFrameAnalysis = false
+      this.currentFrame = null
+    },
+    
+    async handleDelete(analysis) {
+      try {
+        await this.$confirm('确定要删除这条分析记录吗？', '提示', {
+          confirmButtonText: '确定',
+          cancelButtonText: '取消',
+          type: 'warning'
+        })
+        
+        await deleteAnalysis(analysis.id)
+        this.$message.success('删除成功')
+        this.loadAnalyses()  // 重新加载列表
+        
+      } catch (error) {
+        if (error !== 'cancel') {
+          this.$message.error(error.response?.data?.detail || '删除失败')
+        }
+      }
+    },
+    
+    onFrameImageLoad(event, frame) {
+      const img = event.target
+      const aspectRatio = img.naturalHeight / img.naturalWidth
+      const wrapper = img.closest('.frame-image-wrapper')
+      if (wrapper) {
+        wrapper.style.paddingBottom = `${aspectRatio * 100}%`
+      }
+    }
   }
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .video-analysis {
   padding: 20px;
   height: 100%;
@@ -481,37 +570,34 @@ export default {
   }
 }
 
-.analysis-info {
-  margin-bottom: 20px;
-  padding: 20px;
-  background: #f8f9fa;
-  border-radius: 4px;
-}
-
 .frames-grid {
   margin-top: 20px;
+  
+  h3 {
+    margin-bottom: 20px;
+  }
+}
+
+.frame-card {
+  margin-bottom: 15px;
+  transition: transform 0.3s;
+  
+  &:hover {
+    transform: translateY(-5px);
+  }
 }
 
 .frame-image-container {
+  width: 100%;
+  background: #f5f7fa;
+}
+
+.frame-image-wrapper {
   position: relative;
   width: 100%;
+  height: 0;
+  padding-bottom: 75%; // 默认4:3比例，会被实际图片比例覆盖
   overflow: hidden;
-  background: #000;
-}
-
-/* 16:9 宽屏比例 */
-.frame-image-container.widescreen {
-  padding-bottom: 56.25%; /* 16:9 = 9/16 = 0.5625 */
-}
-
-/* 9:16 竖屏比例 */
-.frame-image-container.vertical {
-  padding-bottom: 177.78%; /* 9:16 = 16/9 = 1.7778 */
-}
-
-/* 1:1 正方形比例 */
-.frame-image-container.square {
-  padding-bottom: 100%;
 }
 
 .frame-image {
@@ -520,47 +606,31 @@ export default {
   left: 0;
   width: 100%;
   height: 100%;
-  object-fit: contain;
-  background: #000;
+  object-fit: cover;
 }
 
 .frame-info {
   padding: 10px;
-  font-size: 12px;
-  color: #606266;
-  background: #f8f9fa;
-}
-
-.frame-info p {
-  margin: 5px 0;
-  line-height: 1.4;
-}
-
-/* 响应式布局调整 */
-@media (max-width: 1200px) {
-  .el-col {
-    width: 33.33% !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .el-col {
-    width: 50% !important;
-  }
-}
-
-@media (max-width: 480px) {
-  .el-col {
-    width: 100% !important;
-  }
-}
-
-.el-card {
-  margin-bottom: 20px;
-  transition: transform 0.3s;
   
-  &:hover {
-    transform: translateY(-2px);
+  p {
+    margin: 3px 0;
+    font-size: 12px;
+    color: #606266;
+  }
+}
+
+.frame-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  
+  .el-button {
+    padding: 0;
+    margin: 0;
+    
+    &:hover {
+      opacity: 0.8;
+    }
   }
 }
 
@@ -619,5 +689,13 @@ export default {
 
 .copy-btn:hover {
   color: #409EFF;
+}
+
+.delete-btn {
+  color: #F56C6C;
+  
+  &:hover {
+    color: #f78989;
+  }
 }
 </style> 

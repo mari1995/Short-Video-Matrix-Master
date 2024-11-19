@@ -23,3 +23,10 @@ export function getAnalysisDetail(id) {
     method: 'get'
   })
 } 
+
+export function deleteAnalysis(id) {
+  return request({
+    url: `/api/v1/video-analysis/${id}`,
+    method: 'delete'
+  })
+}

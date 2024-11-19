@@ -51,6 +51,18 @@ const routes = [
         name: 'Settings',
         component: () => import('../views/settings/index.vue'),
         meta: { title: '配置中心', icon: 'el-icon-setting' }
+      },
+      {
+        path: '/drafts',
+        name: 'Drafts',
+        component: () => import('../views/drafts/index.vue'),
+        meta: { title: '草稿箱', icon: 'el-icon-document' }
+      },
+      {
+        path: '/video-editor',
+        name: 'VideoEditor',
+        component: () => import('../views/video-editor/index.vue'),
+        meta: { title: '视频剪辑', icon: 'el-icon-scissors' }
       }
     ]
   }

@@ -20,7 +20,7 @@ const actions = {
         .then(response => {
           const { data } = response
           commit('SET_TOKEN', data.token)
-          setToken(data.access_token)
+          setToken(data.token)
           resolve()
         })
         .catch(error => {

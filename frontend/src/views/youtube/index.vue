@@ -198,7 +198,7 @@
         
         <el-table-column
           label="操作"
-          width="120"
+          width="200"
           fixed="right"
         >
           <template slot-scope="scope">
@@ -209,6 +209,14 @@
               @click="redownloadFile(scope.row)"
             >
               重新下载
+            </el-button>
+            <el-button
+              v-if="scope.row.status === 'success'"
+              type="text"
+              size="small"
+              @click="downloadToLocal(scope.row)"
+            >
+              下载到本地
             </el-button>
           </template>
         </el-table-column>
@@ -236,12 +244,7 @@ import {
   getDownloadStatus, 
   cancelDownload 
 } from '@/api/youtube'
-import {
-  getDownloadHistory,
-  deleteDownloadHistory,
-  clearDownloadHistory,
-  getDownloadStats
-} from '@/api/youtube-history'
+import { getDownloadHistory, getHistoryDetail, deleteHistory, getDownloadUrl, downloadToLocal as downloadToLocalUtil } from '@/api/youtube-history'
 
 export default {
   name: 'YoutubeDownloader',
@@ -307,9 +310,7 @@ export default {
       this.downloadStatus = '正在下载...'
 
       try {
-        const response = await this.$axios.post('/api/v1/youtube/download', {
-          url: this.youtubeUrl
-        })
+        const response = await downloadVideo(this.youtubeUrl)
         
         // 处理下载进度信息
         if (response.data.progress) {
@@ -400,15 +401,20 @@ export default {
     async loadHistory() {
       this.historyLoading = true
       try {
-        const skip = (this.currentPage - 1) * this.pageSize
         const response = await getDownloadHistory({
-          skip,
+          skip: (this.currentPage - 1) * this.pageSize,
           limit: this.pageSize
         })
-        this.downloadHistory = response.data.items
-        this.totalHistory = response.data.total
+        
+        if (response.data && Array.isArray(response.data.items)) {
+          this.downloadHistory = response.data.items
+          this.totalHistory = response.data.total
+        } else {
+          throw new Error('Invalid response format')
+        }
       } catch (error) {
-        this.$message.error('加载历史记录失败')
+        console.error('Load history error:', error)
+        this.$message.error('加载历史记录失败: ' + (error.response?.data?.detail || error.message))
       } finally {
         this.historyLoading = false
       }
@@ -420,15 +426,40 @@ export default {
     },
     
     redownloadFile(record) {
-      if (record.file_path) {
-        const fileName = record.file_path.split('/').pop()
-        const downloadUrl = `${this.baseUrl}/static/youtube/downloads/${fileName}`
-        this.triggerDownload(downloadUrl, fileName)
+      if (record.file_url) {
+        this.downloadToLocal(record)
       }
     },
     
     formatDate(date) {
       return new Date(date).toLocaleString()
+    },
+    
+    downloadToLocal(record) {
+      if (record.file_url) {
+        // 使用 fetch 下载文件
+        fetch(record.file_url)
+          .then(response => response.blob())
+          .then(blob => {
+            // 创建 Blob URL
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = record.title + '.mp4';  // 设置下载文件名
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            // 释放 Blob URL
+            window.URL.revokeObjectURL(url);
+          })
+          .catch(error => {
+            console.error('Download error:', error);
+            this.$message.error('下载失败');
+          });
+      } else {
+        this.$message.warning('文件URL不存在');
+      }
     }
   }
 }
@@ -642,5 +673,17 @@ export default {
   margin: 20px 0;
   max-height: calc(100vh - 400px);
   overflow-y: auto;
+}
+
+.el-button + .el-button {
+  margin-left: 10px;
+}
+
+.el-button.download-btn {
+  color: #67C23A;
+  
+  &:hover {
+    color: #85ce61;
+  }
 }
 </style> 

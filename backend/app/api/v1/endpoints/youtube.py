@@ -86,18 +86,22 @@ async def download_file(filename: str):
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.get("/history")
-async def get_download_history(
+async def get_history(
     skip: int = 0,
     limit: int = 10,
     db: Session = Depends(get_db)
 ):
     """获取下载历史"""
-    total = youtube_history.get_youtube_history_count(db)
-    items = youtube_history.get_youtube_history(db, skip=skip, limit=limit)
+    total = db.query(YouTubeHistory).count()
+    downloads = db.query(YouTubeHistory)\
+        .order_by(YouTubeHistory.created_at.desc())\
+        .offset(skip)\
+        .limit(limit)\
+        .all()
     
     return {
         "total": total,
-        "items": [item.serialize for item in items]
+        "items": [item.serialize() for item in downloads]
     }
 
 @router.post("/download")
@@ -106,6 +110,7 @@ async def download_video(
     db: Session = Depends(get_db)
 ):
     """下载视频并记录历史"""
+    history = None
     try:
         # 获取视频信息
         info = get_video_info(request.url)
@@ -122,80 +127,73 @@ async def download_video(
             "is_shorts": info["is_shorts"]
         }
         
-        try:
-            # 创建历史记录
-            history = youtube_history.create_youtube_history(db, history_data)
-            
-            # 执行下载
-            # 确保下载目录存在
-            DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
-            
-            # 准备文件名（移除非法字符）
-            safe_title = "".join(c for c in info["title"] if c.isalnum() or c in (' ', '-', '_')).strip()
-            output_template = str(DOWNLOAD_DIR / f'{safe_title}.%(ext)s')
-            
-            # 设置下载选项
-            ydl_opts = {
-                'format': 'best[ext=mp4]/best',  # 优先下载MP4格式
-                'outtmpl': output_template,
-                'progress_hooks': [show_progress],
-            }
-            
-            # 如果是Shorts视频，限制质量为1080p
-            if info["is_shorts"]:
-                ydl_opts['format'] += '[height<=1080]'
-            
-            progress_info = {"current": None}
-            
-            def progress_callback(d):
-                progress_info["current"] = show_progress(d)
-            
-            ydl_opts['progress_hooks'] = [progress_callback]
-            
-            # 执行下载
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                ydl.download([request.url])
-            
-            # 获取下载后的文件路径
-            final_path = str(DOWNLOAD_DIR / f'{safe_title}.mp4')
-            
-            # 检查文件是否存在
-            if not os.path.exists(final_path):
-                raise Exception("Downloaded file not found")
-            
-            # 修改返回数据，使用静态文件URL
-            file_name = os.path.basename(final_path)
-            download_url = f"/static/youtube/downloads/{file_name}"  # 使用静态文件路径
-            
-            # 更新历史记录
-            youtube_history.update_youtube_history(db, history.id, {
-                "file_path": final_path,
-                "file_size": os.path.getsize(final_path),
-                "status": "success"
-            })
-            
-            return {
-                "status": "success",
-                "title": info["title"],
-                "author": info["author"],
-                "file_path": final_path,
-                "file_name": file_name,
-                "download_url": download_url,
-                "file_size": os.path.getsize(final_path),
-                "is_shorts": info["is_shorts"],
-                "progress": progress_info["current"] or {"status": "finished", "progress": 100}
-            }
-            
-        except Exception as e:
-            # 更新失败状态
-            if history:
-                youtube_history.update_youtube_history(db, history.id, {
-                    "status": "failed",
-                    "error_message": str(e)
-                })
-            raise
-            
+        # 创建历史记录
+        history = youtube_history.create_youtube_history(db, history_data)
+        
+        # 执行下载
+        # 确保下载目录存在
+        DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        
+        # 准备文件名（移除非法字符）
+        safe_title = "".join(c for c in info["title"] if c.isalnum() or c in (' ', '-', '_')).strip()
+        output_template = str(DOWNLOAD_DIR / f'{safe_title}.%(ext)s')
+        
+        # 设置下载选项
+        ydl_opts = {
+            'format': 'best[ext=mp4]/best',  # 优先下载MP4格式
+            'outtmpl': output_template,
+            'progress_hooks': [show_progress],
+        }
+        
+        # 如果是Shorts视频，限制质量为1080p
+        if info["is_shorts"]:
+            ydl_opts['format'] += '[height<=1080]'
+        
+        progress_info = {"current": None}
+        
+        def progress_callback(d):
+            progress_info["current"] = show_progress(d)
+        
+        ydl_opts['progress_hooks'] = [progress_callback]
+        
+        # 执行下载
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([request.url])
+        
+        # 获取下载后的文件路径
+        final_path = str(DOWNLOAD_DIR / f'{safe_title}.mp4')
+        
+        # 检查文件是否存在
+        if not os.path.exists(final_path):
+            raise Exception("Downloaded file not found")
+        
+        # 生成完整URL
+        file_url = f"http://127.0.0.1:8000/static/youtube/downloads/{os.path.basename(final_path)}"
+        
+        # 更新历史记录
+        youtube_history.update_youtube_history(db, history.id, {
+            "file_url": file_url,  # 存储完整URL
+            "file_size": os.path.getsize(final_path),
+            "status": "success"
+        })
+        
+        return {
+            "status": "success",
+            "title": info["title"],
+            "author": info["author"],
+            "file_url": file_url,  # 返回完整URL
+            "file_size": os.path.getsize(final_path),
+            "is_shorts": info["is_shorts"],
+            "progress": progress_info["current"] or {"status": "finished", "progress": 100}
+        }
+        
     except Exception as e:
+        # 更新失败状态
+        if history:
+            youtube_history.update_youtube_history(db, history.id, {
+                "status": "failed",
+                "error_message": str(e)
+            })
         raise HTTPException(status_code=400, detail=str(e))
 
 @router.delete("/history/{history_id}")

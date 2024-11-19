@@ -1,16 +1,21 @@
 import axios from 'axios'
 import { Message } from 'element-ui'
-import { API_URL } from '@/config/api.config'
+import { getToken } from '@/utils/auth'
 
 // 创建axios实例
 const service = axios.create({
-  baseURL: API_URL,
+  baseURL: 'http://127.0.0.1:8000',
   timeout: 15000
 })
 
 // 请求拦截器
 service.interceptors.request.use(
   config => {
+    // 添加 token 到请求头
+    const token = getToken()
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`
+    }
     return config
   },
   error => {

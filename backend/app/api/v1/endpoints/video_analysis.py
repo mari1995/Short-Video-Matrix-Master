@@ -101,10 +101,13 @@ async def upload_video(
         with file_path.open("wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
             
+        # 生成完整URL
+        file_url = f"http://127.0.0.1:8000/static/uploads/videos/{file.filename}"
+            
         # 创建分析记录
         analysis = VideoAnalysis(
             file_name=file.filename,
-            file_path=str(file_path),
+            file_url=file_url,
             status="processing"
         )
         db.add(analysis)
@@ -158,12 +161,42 @@ async def process_video(file_path: str, analysis_id: int, db: Session, request: 
             db.commit()
 
 @router.get("/analysis/{analysis_id}")
-async def get_analysis(analysis_id: int, db: Session = Depends(get_db)):
-    """获取分析结果"""
-    analysis = db.query(VideoAnalysis).get(analysis_id)
+async def get_analysis_detail(
+    analysis_id: int,
+    db: Session = Depends(get_db)
+):
+    """获取视频分析详情"""
+    # 查询分析记录
+    analysis = db.query(VideoAnalysis).filter(VideoAnalysis.id == analysis_id).first()
+    
     if not analysis:
-        raise HTTPException(status_code=404, detail="Analysis not found")
-    return analysis.serialize
+        raise HTTPException(
+            status_code=404,
+            detail=f"Analysis with id {analysis_id} not found"
+        )
+    
+    try:
+        # 获取完整的分析数据
+        analysis_data = analysis.serialize()
+        
+        # 如果有帧数据，确保每个帧都有完整的URL
+        if analysis_data.get('frames_data'):
+            for frame in analysis_data['frames_data']:
+                if 'url' in frame:
+                    # 确保URL是完整的
+                    if not frame['url'].startswith('http'):
+                        frame['url'] = f"http://127.0.0.1:8000/{frame['url'].lstrip('/')}"
+        
+        # 记录日志
+        print(f"Returning analysis data for ID {analysis_id}: {analysis_data}")
+        
+        return analysis_data
+        
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error retrieving analysis details: {str(e)}"
+        )
 
 @router.get("/list")
 async def list_analyses(
@@ -180,7 +213,7 @@ async def list_analyses(
         .all()
     return {
         "total": total,
-        "items": [item.serialize for item in analyses]
+        "items": [item.serialize() for item in analyses]
     } 
 
 class FrameAnalysisResponse(BaseModel):
@@ -191,7 +224,7 @@ class FrameAnalysisResponse(BaseModel):
 
 @router.post("/analyze-frame")
 async def analyze_frame(
-    image_path: str,
+    image_url: str,
     db: Session = Depends(get_db)
 ):
     """分析视频帧图片"""
@@ -210,9 +243,12 @@ async def analyze_frame(
             'Authorization': api_key
         }
         
-        # 读取文件内容
-        with open(image_path, 'rb') as f:
-            file_content = f.read()
+        # 从URL下载图片内容
+        async with aiohttp.ClientSession() as session:
+            async with session.get(image_url) as response:
+                if response.status != 200:
+                    raise HTTPException(status_code=400, detail="Failed to download image")
+                file_content = await response.read()
         
         # 准备multipart表单数据
         form_data = aiohttp.FormData()

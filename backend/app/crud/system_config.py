@@ -45,27 +45,15 @@ def init_default_configs(db: Session):
     """初始化默认配置"""
     defaults = [
         {
-            'key': 'openai_base_url',
+            'key': 'openapi_base_url',
             'value': 'https://api.openai.com/v1',
-            'description': 'OpenAI API 基础URL',
+            'description': 'openapi API 基础URL',
             'is_secret': False
         },
         {
-            'key': 'openai_api_key',
+            'key': 'openapi_api_key',
             'value': '',
-            'description': 'OpenAI API 密钥',
-            'is_secret': True
-        },
-        {
-            'key': 'ideogram_base_url',
-            'value': 'https://api.ideogram.ai',
-            'description': 'Ideogram API 基础URL',
-            'is_secret': False
-        },
-        {
-            'key': 'ideogram_api_key',
-            'value': '',
-            'description': 'Ideogram API 密钥',
+            'description': 'openapi API 密钥',
             'is_secret': True
         }
     ]

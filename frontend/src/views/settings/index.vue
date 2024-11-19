@@ -150,6 +150,8 @@
 </template>
 
 <script>
+import { getConfigs, updateConfig, addConfig, deleteConfig } from '@/api/settings'
+
 export default {
   name: 'Settings',
   data() {
@@ -184,7 +186,7 @@ export default {
     async loadConfigs() {
       this.loading = true
       try {
-        const response = await this.$axios.get('/api/v1/system-config')
+        const response = await getConfigs()
         this.configs = response.data
         
         // 初始化表单数据
@@ -202,7 +204,7 @@ export default {
     async updateConfig(key) {
       this.updating[key] = true
       try {
-        await this.$axios.put(`/api/v1/system-config/${key}`, {
+        await updateConfig(key, {
           value: this.configForm[key]
         })
         this.$message.success('更新成功')
@@ -241,10 +243,10 @@ export default {
         if (valid) {
           try {
             if (this.dialogType === 'add') {
-              await this.$axios.post('/api/v1/system-config', this.dialogForm)
+              await addConfig(this.dialogForm)
               this.$message.success('添加成功')
             } else {
-              await this.$axios.put(`/api/v1/system-config/${this.dialogForm.key}`, {
+              await updateConfig(this.dialogForm.key, {
                 value: this.dialogForm.value,
                 description: this.dialogForm.description,
                 is_secret: this.dialogForm.is_secret
@@ -266,7 +268,7 @@ export default {
           type: 'warning'
         })
         
-        await this.$axios.delete(`/api/v1/system-config/${config.key}`)
+        await deleteConfig(config.key)
         this.$message.success('删除成功')
         this.loadConfigs()
       } catch (error) {
