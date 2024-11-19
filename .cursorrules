@@ -1,13 +1,24 @@
 通用管理后台系统，基于 Vue + Element UI + FastAPI + SQLite 的现代化管理后台系统。
 
 前后端交互通过 http 请求,使用 restful 风格,采用 json 格式
-
+Node v18 和 python 3.10的语言开发
 项目结构，如下
 ```
 project/
 ├── frontend/ # 前端项目目录
 │ ├── src/
 │ │ ├── api/ # API 接口
+│ │ │ ├── drafts.js # 草稿箱接口
+│ │ │ ├── files.js # 文件管理接口
+│ │ │ ├── image.js # 图片分析接口
+│ │ │ ├── index.js # API 统一导出
+│ │ │ ├── settings.js # 系统设置接口
+│ │ │ ├── statistics.js # 统计数据接口
+│ │ │ ├── system.js # 系统接口
+│ │ │ ├── user.js # 用户接口
+│ │ │ ├── video.js # 视频分析接口
+│ │ │ ├── video-editor.js # 视频编辑接口
+│ │ │ └── youtube.js # YouTube下载接口
 │ │ ├── assets/ # 静态资源
 │ │ ├── components/ # 公共组件
 │ │ ├── layout/ # 布局组件
@@ -15,6 +26,14 @@ project/
 │ │ ├── store/ # Vuex状态管理
 │ │ ├── utils/ # 工具函数
 │ │ ├── views/ # 页面视图
+│ │ │ ├── Dashboard.vue # 首页
+│ │ │ ├── Login.vue # 登录页
+│ │ │ ├── drafts/ # 草稿箱
+│ │ │ ├── files/ # 文件管理
+│ │ │ ├── settings/ # 系统设置
+│ │ │ ├── video-analysis/ # 视频分析
+│ │ │ ├── video-editor/ # 视频编辑
+│ │ │ └── youtube/ # YouTube下载
 │ │ ├── App.vue # 根组件
 │ │ └── main.js # 入口文件
 │ └── package.json
@@ -22,9 +41,18 @@ project/
 ├── backend/ # 后端项目目录
 │ ├── app/
 │ │ ├── api/ # API路由
+│ │ │ └── v1/
+│ │ │     ├── api.py # API路由注册
+│ │ │     └── endpoints/ # API端点
 │ │ ├── core/ # 核心配置
+│ │ │ ├── config.py # 配置文件
+│ │ │ ├── logger.py # 日志配置
+│ │ │ └── security.py # 安全配置
 │ │ ├── crud/ # CRUD操作
 │ │ ├── db/ # 数据库模型
+│ │ │ ├── base.py # 数据库基类
+│ │ │ └── models/ # 数据库模型
+│ │ ├── middleware/ # 中间件
 │ │ ├── schemas/ # Pydantic模型
 │ │ └── utils/ # 工具函数
 │ ├── tests/ # 测试文件
