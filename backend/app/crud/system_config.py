@@ -4,17 +4,18 @@ from app.db.models.system_config import SystemConfig
 
 def get_config(db: Session, key: str) -> Optional[SystemConfig]:
     """获取配置项"""
-    return db.query(SystemConfig).filter(SystemConfig.key == key).first()
+    return db.query(SystemConfig).filter(SystemConfig.config_key == key).first()
 
 def get_configs(db: Session, skip: int = 0, limit: int = 100) -> List[SystemConfig]:
     """获取配置列表"""
     return db.query(SystemConfig).offset(skip).limit(limit).all()
 
-def create_config(db: Session, key: str, value: str, description: str = None, is_secret: bool = False) -> SystemConfig:
+def create_config(db: Session, user_id: int, key: str, value: str, description: str = None, is_secret: bool = False) -> SystemConfig:
     """创建配置项"""
     config = SystemConfig(
-        key=key,
-        value=value,
+        user_id=user_id,
+        config_key=key,
+        config_value=value,
         description=description,
         is_secret=is_secret
     )
@@ -23,11 +24,15 @@ def create_config(db: Session, key: str, value: str, description: str = None, is
     db.refresh(config)
     return config
 
-def update_config(db: Session, key: str, value: str) -> Optional[SystemConfig]:
+def update_config(db: Session, key: str, value: str, description: str = None, is_secret: bool = None) -> Optional[SystemConfig]:
     """更新配置项"""
     config = get_config(db, key)
     if config:
-        config.value = value
+        config.config_value = value
+        if description is not None:
+            config.description = description
+        if is_secret is not None:
+            config.is_secret = is_secret
         db.commit()
         db.refresh(config)
     return config

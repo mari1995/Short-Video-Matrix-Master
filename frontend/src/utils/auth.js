@@ -9,5 +9,9 @@ export function setToken(token) {
 }
 
 export function removeToken() {
-  return localStorage.removeItem(TokenKey)
+  // 清除 token
+  localStorage.removeItem(TokenKey)
+  // 清除其他相关的用户数据
+  localStorage.removeItem('user')
+  sessionStorage.clear()
 } 

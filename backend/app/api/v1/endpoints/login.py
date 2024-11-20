@@ -1,6 +1,6 @@
 from datetime import timedelta
 from typing import Any
-from fastapi import APIRouter, Depends, HTTPException, Request, Form
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from sqlalchemy.orm import Session
 from loguru import logger
 from traceback import format_exc
@@ -83,16 +83,17 @@ async def login_access_token(
                 }
             )
         
-        # 生成token
-        access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+        # 生成token，使用用户ID
+        access_token_expires = timedelta(minutes=security.ACCESS_TOKEN_EXPIRE_MINUTES)
         token = security.create_access_token(
-            data={"sub": user.username},
+            user_id=user.id,  # 使用用户ID
             expires_delta=access_token_expires
         )
         
         logger.info({
             "action": "login_success",
             "username": login_data.username,
+            "user_id": user.id,
             "request_id": id(request)
         })
         
@@ -117,6 +118,56 @@ async def login_access_token(
             detail={
                 "error": "internal_error",
                 "message": "服务器内部错误",
+                "code": "INTERNAL_ERROR"
+            }
+        )
+
+@router.post("/auth/logout")
+async def logout(
+    request: Request,
+    response: Response
+):
+    """用户登出"""
+    try:
+        logger.info({
+            "action": "logout_attempt",
+            "request_path": request.url.path,
+            "request_id": id(request)
+        })
+        
+        # 清除客户端的认证信息
+        response.delete_cookie(
+            key="access_token",
+            path="/",
+            domain=None,
+            secure=False,
+            httponly=True
+        )
+        
+        logger.info({
+            "action": "logout_success",
+            "request_id": id(request)
+        })
+        
+        return {
+            "code": 200,
+            "message": "Successfully logged out",
+            "data": None
+        }
+        
+    except Exception as e:
+        logger.error({
+            "action": "logout_error",
+            "error_type": type(e).__name__,
+            "error_message": str(e),
+            "traceback": format_exc(),
+            "request_id": id(request)
+        })
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "internal_error",
+                "message": "登出失败",
                 "code": "INTERNAL_ERROR"
             }
         )

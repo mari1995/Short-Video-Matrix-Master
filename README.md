@@ -1,6 +1,6 @@
 # Short-Video-Matrix-Master
 
-Short-Video-Matrix-Master是一个现代化的管理平台，基于 **Vue + Element UI + FastAPI + SQLite** 构建，旨在提供高效、灵活的短视频矩阵管理解决方案。
+Short-Video-Matrix-Master是一个现代化的管理平台，基于 **Vue + Element UI + FastAPI + MySQL** 构建，旨在提供高效、灵活的短视频矩阵管理解决方案。
 
 ## 技术栈
 
@@ -16,7 +16,7 @@ Short-Video-Matrix-Master是一个现代化的管理平台，基于 **Vue + Elem
 ### 后端
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.95+-009688?style=flat-square&logo=fastapi)
 ![Python](https://img.shields.io/badge/Python-3.10-3776AB?style=flat-square&logo=python)
-![SQLite](https://img.shields.io/badge/SQLite-3.x-003B57?style=flat-square&logo=sqlite)
+![MySQL](https://img.shields.io/badge/MySQL-8.0+-4479A1?style=flat-square&logo=mysql)
 ![SQLAlchemy](https://img.shields.io/badge/SQLAlchemy-2.x-D71F00?style=flat-square)
 ![OpenCV](https://img.shields.io/badge/OpenCV-4.x-5C3EE8?style=flat-square&logo=opencv)
 ![JWT](https://img.shields.io/badge/JWT-Auth-000000?style=flat-square&logo=json-web-tokens)
@@ -51,8 +51,18 @@ npm run serve
 
 2. 后端开发
 ```bash
+# 安装依赖
 cd backend
 pip install -r requirements.txt
+
+# 初始化数据库
+mysql -u root -p < scripts/init_db.sql
+
+# 运行数据库迁移
+alembic revision --autogenerate -m "initial"
+alembic upgrade head
+
+# 启动开发服务器
 python debug.py
 ```
 
@@ -88,7 +98,7 @@ python debug.py
 1. **环境要求** 🔧
    - Node.js >= 18
    - Python >= 3.10
-   - SQLite 3
+   - MySQL >= 8.0
 
 2. **配置说明** ⚙️
    - 前端配置: .env.development

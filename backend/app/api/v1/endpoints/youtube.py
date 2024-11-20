@@ -7,8 +7,10 @@ import os
 from pathlib import Path
 from sqlalchemy.orm import Session
 from app.db.models.youtube_history import YouTubeHistory
+from app.db.models.user import User
 from app.db.base import get_db
 from app.crud import youtube_history
+from app.api.v1.deps import get_current_user
 
 router = APIRouter()
 
@@ -107,30 +109,31 @@ async def get_history(
 @router.post("/download")
 async def download_video(
     request: DownloadRequest,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """下载视频并记录历史"""
-    history = None
+    """下载视频"""
     try:
         # 获取视频信息
         info = get_video_info(request.url)
         
-        # 准备历史记录数据
-        history_data = {
-            "url": request.url,
-            "title": info["title"],
-            "author": info["author"],
-            "duration": info["length"],
-            "views": info["views"],
-            "thumbnail_url": info["thumbnail_url"],
-            "description": info["description"],
-            "is_shorts": info["is_shorts"]
-        }
+        # 创建下载历史记录
+        history = YouTubeHistory(
+            user_id=current_user.id,
+            url=request.url,
+            title=info["title"],
+            author=info["author"],
+            duration=info.get("length"),
+            views=info.get("views"),
+            thumbnail_url=info.get("thumbnail_url"),
+            description=info.get("description"),
+            is_shorts=info.get("is_shorts", False),
+            status="pending"
+        )
+        db.add(history)
+        db.commit()
+        db.refresh(history)
         
-        # 创建历史记录
-        history = youtube_history.create_youtube_history(db, history_data)
-        
-        # 执行下载
         # 确保下载目录存在
         DOWNLOAD_DIR.mkdir(parents=True, exist_ok=True)
         

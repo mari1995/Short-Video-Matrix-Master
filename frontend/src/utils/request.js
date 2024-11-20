@@ -1,11 +1,12 @@
 import axios from 'axios'
-import { Message } from 'element-ui'
 import { getToken } from '@/utils/auth'
+import { Message } from 'element-ui'
+import router from '@/router'
 
-// 创建axios实例
+// 创建 axios 实例
 const service = axios.create({
-  baseURL: 'http://127.0.0.1:8000',
-  timeout: 15000
+  baseURL: process.env.VUE_APP_BASE_API,
+  timeout: 30000
 })
 
 // 请求拦截器
@@ -19,7 +20,7 @@ service.interceptors.request.use(
     return config
   },
   error => {
-    console.log(error)
+    console.error('Request error:', error)
     return Promise.reject(error)
   }
 )
@@ -30,12 +31,29 @@ service.interceptors.response.use(
     return response
   },
   error => {
-    console.log('err' + error)
-    Message({
-      message: error.response?.data?.detail || '请求失败',
-      type: 'error',
-      duration: 5 * 1000
-    })
+    if (error.response) {
+      switch (error.response.status) {
+        case 401:
+          Message.error('登录已过期，请重新登录')
+          // 清除 token 并跳转到登录页
+          localStorage.removeItem('token')
+          // router.push('/login')
+          break
+        case 403:
+          Message.error('没有权限访问')
+          break
+        case 404:
+          Message.error('请求的资源不存在')
+          break
+        case 500:
+          Message.error('服务器内部错误')
+          break
+        default:
+          Message.error(error.response.data?.detail || '请求失败')
+      }
+    } else {
+      Message.error('网络错误，请稍后重试')
+    }
     return Promise.reject(error)
   }
 )

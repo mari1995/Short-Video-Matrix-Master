@@ -1,25 +1,28 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Boolean
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, ForeignKey
+from sqlalchemy.sql import func
 from app.db.models.base_model import BaseModel
 
 class SystemConfig(BaseModel):
     """系统配置模型"""
-    __tablename__ = "system_config"
+    __tablename__ = "system_configs"
 
     id = Column(Integer, primary_key=True, index=True)
-    key = Column(String(100), unique=True, nullable=False, comment="配置键")
-    value = Column(Text, comment="配置值")
-    description = Column(String(255), comment="配置描述")
-    is_secret = Column(Boolean, default=False, comment="是否加密存储")
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    config_key = Column(String(255), unique=True)
+    config_value = Column(Text)
+    description = Column(Text)
+    is_secret = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    @property
     def serialize(self):
-        """返回序列化数据"""
         return {
-            'id': self.id,
-            'key': self.key,
-            'value': self.value if not self.is_secret else '******',
-            'description': self.description,
-            'is_secret': self.is_secret,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            "id": self.id,
+            "user_id": self.user_id,
+            "config_key": self.config_key,
+            "config_value": self.config_value,
+            "description": self.description,
+            "is_secret": self.is_secret,
+            "created_at": self.created_at.timestamp() if self.created_at else None,
+            "updated_at": self.updated_at.timestamp() if self.updated_at else None
         } 

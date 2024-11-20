@@ -4,6 +4,14 @@
     <div class="sidebar-container">
       <div class="logo">
         <span>管理系统</span>
+        <a 
+          href="https://github.com/mari1995/Short-Video-Matrix-Master" 
+          target="_blank" 
+          class="github-link"
+          title="访问 GitHub 仓库"
+        >
+          <i class="el-icon-position"></i>
+        </a>
       </div>
       <el-menu
         :default-active="$route.path"
@@ -33,10 +41,10 @@
           </el-menu-item>
 
           <!-- 视频剪辑 -->
-          <el-menu-item index="/video-editor">
+          <!-- <el-menu-item index="/video-editor">
             <i class="el-icon-scissors"></i>
             <span slot="title">视频剪辑</span>
-          </el-menu-item>
+          </el-menu-item> -->
         </el-menu-item-group>
 
         <!-- 文件管理相关组 -->
@@ -111,6 +119,26 @@ export default {
     font-size: 20px;
     font-weight: bold;
     border-bottom: 1px solid #1f2d3d;
+    position: relative;
+    
+    .github-link {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #909399;
+      font-size: 20px;
+      transition: all 0.3s ease;
+      
+      &:hover {
+        color: #fff;
+        transform: translateY(-50%) scale(1.1);
+      }
+      
+      i {
+        font-weight: bold;
+      }
+    }
   }
 
   .el-menu {
@@ -136,7 +164,6 @@ export default {
 
 .app-main {
   flex: 1;
-  padding: 20px;
   background: #f0f2f5;
   position: relative;
 }

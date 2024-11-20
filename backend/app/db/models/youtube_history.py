@@ -1,11 +1,13 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, BigInteger
+from sqlalchemy import Column, Integer, String, DateTime, Text, Boolean, BigInteger, ForeignKey
 from sqlalchemy.sql import func
 from app.db.models.base_model import BaseModel
 
 class YouTubeHistory(BaseModel):
+    """YouTube下载历史模型"""
     __tablename__ = "youtube_history"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     url = Column(String(1024))
     title = Column(String(255))
     author = Column(String(255))
@@ -14,12 +16,12 @@ class YouTubeHistory(BaseModel):
     thumbnail_url = Column(String(1024))
     description = Column(Text)
     file_url = Column(String(1024))
-    file_size = Column(BigInteger, nullable=True)
-    status = Column(String(50), default='pending')  # pending, success, failed
-    error_message = Column(Text, nullable=True)
+    file_size = Column(BigInteger)
+    status = Column(String(50), default='pending')
+    error_message = Column(Text)
     is_shorts = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now(), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 
     def serialize(self):
         return {

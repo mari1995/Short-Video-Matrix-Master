@@ -17,11 +17,8 @@ from app.db.models import init_db as create_tables
 from app.middleware.logging import log_request_middleware
 
 app = FastAPI(
-    title="管理后台 API",
-    description="通用管理后台系统 API 文档",
-    version="1.0.0",
-    docs_url=None,  # 禁用默认的 /docs
-    redoc_url=None  # 禁用默认的 /redoc
+    title=settings.PROJECT_NAME,
+    openapi_url=f"{settings.API_V1_STR}/openapi.json"
 )
 
 # 添加日志中间件

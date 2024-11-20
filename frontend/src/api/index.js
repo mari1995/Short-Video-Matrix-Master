@@ -48,39 +48,6 @@ export const youtubeApi = {
   },
   getDownloadUrl(fileName) {
     return `http://127.0.0.1:8000/static/youtube/downloads/${fileName}`
-  },
-  downloadToLocal(url, fileName) {
-    const iframe = document.createElement('iframe')
-    iframe.style.display = 'none'
-    document.body.appendChild(iframe)
-    
-    try {
-      const form = iframe.contentDocument.createElement('form')
-      form.method = 'GET'
-      form.action = url
-      
-      const fileNameInput = iframe.contentDocument.createElement('input')
-      fileNameInput.type = 'hidden'
-      fileNameInput.name = 'filename'
-      fileNameInput.value = fileName
-      form.appendChild(fileNameInput)
-      
-      iframe.contentDocument.body.appendChild(form)
-      form.submit()
-      
-      setTimeout(() => {
-        document.body.removeChild(iframe)
-      }, 5000)
-    } catch (error) {
-      console.warn('Fallback to simple download:', error)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = fileName
-      link.style.display = 'none'
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-    }
   }
 }
 
@@ -114,29 +81,16 @@ export const videoApi = {
       url: `/api/v1/video-analysis/${id}`,
       method: 'delete'
     })
-  },
-  analyzeFrame(data) {
-    return request({
-      url: '/api/v1/video-analysis/analyze-frame',
-      method: 'post',
-      data,
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
   }
 }
 
 // 图片分析相关接口
-export const imageAnalysisApi = {
+export const imageApi = {
   analyzeImage(data) {
     return request({
       url: '/api/v1/image-analysis/describe',
       method: 'post',
-      data,
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
+      data
     })
   }
 }
@@ -178,6 +132,13 @@ export const draftApi = {
       data
     })
   },
+  addToDraftsByUrl(data) {
+    return request({
+      url: '/api/v1/drafts/add-by-url',
+      method: 'post',
+      data
+    })
+  },
   deleteDraft(id) {
     return request({
       url: `/api/v1/drafts/${id}`,
@@ -187,24 +148,24 @@ export const draftApi = {
 }
 
 // 系统配置相关接口
-export const systemApi = {
+export const settingsApi = {
   getConfigs() {
     return request({
       url: '/api/v1/system-config',
       method: 'get'
     })
   },
+  createConfig(data) {
+    return request({
+      url: '/api/v1/system-config',
+      method: 'post',
+      data
+    })
+  },
   updateConfig(key, data) {
     return request({
       url: `/api/v1/system-config/${key}`,
       method: 'put',
-      data
-    })
-  },
-  addConfig(data) {
-    return request({
-      url: '/api/v1/system-config',
-      method: 'post',
       data
     })
   },
@@ -243,9 +204,30 @@ export const videoEditorApi = {
   }
 }
 
+// 统计相关接口
+export const statisticsApi = {
+  getOverview() {
+    return request({
+      url: '/api/v1/statistics/overview',
+      method: 'get'
+    })
+  },
+  getRecentAnalyses() {
+    return request({
+      url: '/api/v1/statistics/recent',
+      method: 'get'
+    })
+  }
+}
+
 export default {
   userApi,
   youtubeApi,
-  systemApi,
-  videoEditorApi
+  videoApi,
+  imageApi,
+  fileApi,
+  draftApi,
+  settingsApi,
+  videoEditorApi,
+  statisticsApi
 } 

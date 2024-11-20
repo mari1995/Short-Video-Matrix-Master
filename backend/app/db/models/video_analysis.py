@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Float, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Text, Float, JSON, ForeignKey
 from sqlalchemy.sql import func
 from app.db.models.base_model import BaseModel
 
@@ -7,6 +7,7 @@ class VideoAnalysis(BaseModel):
     __tablename__ = "video_analyses"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     file_name = Column(String(255))
     file_url = Column(String(1024))
     status = Column(String(50))
@@ -23,6 +24,7 @@ class VideoAnalysis(BaseModel):
         try:
             return {
                 "id": self.id,
+                "user_id": self.user_id,
                 "file_name": self.file_name,
                 "file_url": self.file_url,
                 "status": self.status,
@@ -40,6 +42,7 @@ class VideoAnalysis(BaseModel):
             # 返回基本信息，确保至少有一些数据返回
             return {
                 "id": self.id,
+                "user_id": self.user_id,
                 "file_name": self.file_name,
                 "status": self.status,
                 "error_message": f"Serialization error: {str(e)}"

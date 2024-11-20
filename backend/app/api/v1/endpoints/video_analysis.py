@@ -13,6 +13,8 @@ from app.crud import system_config
 import aiohttp
 import json
 from pydantic import BaseModel
+from app.db.models.user import User
+from app.api.v1.deps import get_current_user
 
 router = APIRouter()
 
@@ -28,12 +30,16 @@ def get_full_url(request: Request, path: str) -> str:
     """生成完整的URL路径"""
     return f"http://127.0.0.1:8000/{path}"
 
-def extract_key_frames(video_path: str, request: Request, threshold: float = 0.7) -> List[dict]:
+def extract_key_frames(video_path: str, request: Request, analysis_id: int, threshold: float = 0.7) -> List[dict]:
     """提取视频关键帧"""
     cap = cv2.VideoCapture(video_path)
     frames_data = []
     prev_frame = None
     frame_count = 0
+    
+    # 创建该分析ID的专属目录
+    analysis_frames_dir = FRAMES_DIR / str(analysis_id)
+    analysis_frames_dir.mkdir(parents=True, exist_ok=True)
     
     while True:
         ret, frame = cap.read()
@@ -53,9 +59,9 @@ def extract_key_frames(video_path: str, request: Request, threshold: float = 0.7
             prev_frame = gray
             # 保存第一帧
             frame_filename = f"frame_{frame_count}.jpg"
-            frame_path = str(FRAMES_DIR / frame_filename)
+            frame_path = str(analysis_frames_dir / frame_filename)
             cv2.imwrite(frame_path, frame)
-            relative_path = f"static/uploads/frames/{frame_filename}"
+            relative_path = f"static/uploads/frames/{analysis_id}/{frame_filename}"
             frames_data.append({
                 "frame_number": frame_count,
                 "timestamp": frame_count / cap.get(cv2.CAP_PROP_FPS),
@@ -71,9 +77,9 @@ def extract_key_frames(video_path: str, request: Request, threshold: float = 0.7
         # 如果差异大于阈值，保存该帧
         if diff_score > threshold:
             frame_filename = f"frame_{frame_count}.jpg"
-            frame_path = str(FRAMES_DIR / frame_filename)
+            frame_path = str(analysis_frames_dir / frame_filename)
             cv2.imwrite(frame_path, frame)
-            relative_path = f"static/uploads/frames/{frame_filename}"
+            relative_path = f"static/uploads/frames/{analysis_id}/{frame_filename}"
             frames_data.append({
                 "frame_number": frame_count,
                 "timestamp": frame_count / cap.get(cv2.CAP_PROP_FPS),
@@ -90,6 +96,7 @@ def extract_key_frames(video_path: str, request: Request, threshold: float = 0.7
 async def upload_video(
     request: Request,
     file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """上传视频文件"""
@@ -104,11 +111,12 @@ async def upload_video(
         # 生成完整URL
         file_url = f"http://127.0.0.1:8000/static/uploads/videos/{file.filename}"
             
-        # 创建分析记录
+        # 创建分析记录，添加用户ID
         analysis = VideoAnalysis(
             file_name=file.filename,
             file_url=file_url,
-            status="processing"
+            status="processing",
+            user_id=current_user.id
         )
         db.add(analysis)
         db.commit()
@@ -138,8 +146,8 @@ async def process_video(file_path: str, analysis_id: int, db: Session, request: 
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         
-        # 提取关键帧
-        frames_data = extract_key_frames(file_path, request)
+        # 提取关键帧，传入analysis_id
+        frames_data = extract_key_frames(file_path, request, analysis_id)
         
         # 更新分析记录
         analysis = db.query(VideoAnalysis).get(analysis_id)
@@ -163,16 +171,21 @@ async def process_video(file_path: str, analysis_id: int, db: Session, request: 
 @router.get("/analysis/{analysis_id}")
 async def get_analysis_detail(
     analysis_id: int,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取视频分析详情"""
-    # 查询分析记录
-    analysis = db.query(VideoAnalysis).filter(VideoAnalysis.id == analysis_id).first()
+    # 查询分析记录，并验证所有权
+    analysis = db.query(VideoAnalysis)\
+        .filter(
+            VideoAnalysis.id == analysis_id,
+            VideoAnalysis.user_id == current_user.id
+        ).first()
     
     if not analysis:
         raise HTTPException(
             status_code=404,
-            detail=f"Analysis with id {analysis_id} not found"
+            detail="Analysis not found or access denied"
         )
     
     try:
@@ -202,15 +215,22 @@ async def get_analysis_detail(
 async def list_analyses(
     skip: int = 0,
     limit: int = 10,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """获取分析列表"""
-    total = db.query(VideoAnalysis).count()
+    # 只查询当前用户的记录
+    total = db.query(VideoAnalysis)\
+        .filter(VideoAnalysis.user_id == current_user.id)\
+        .count()
+        
     analyses = db.query(VideoAnalysis)\
+        .filter(VideoAnalysis.user_id == current_user.id)\
         .order_by(VideoAnalysis.created_at.desc())\
         .offset(skip)\
         .limit(limit)\
         .all()
+        
     return {
         "total": total,
         "items": [item.serialize() for item in analyses]
@@ -221,56 +241,3 @@ class FrameAnalysisResponse(BaseModel):
     timestamp: float
     image_path: str
     descriptions: List[dict] = None  # 添加图片描述字段
-
-@router.post("/analyze-frame")
-async def analyze_frame(
-    image_url: str,
-    db: Session = Depends(get_db)
-):
-    """分析视频帧图片"""
-    try:
-        # 获取API配置
-        base_url = system_config.get_config(db, 'ideogram_base_url').value
-        api_key = system_config.get_config(db, 'ideogram_api_key').value
-        
-        if not api_key:
-            raise HTTPException(status_code=400, detail="Ideogram API key not configured")
-        
-        # 准备请求
-        url = f"{base_url}/ideogram/describe"
-        headers = {
-            'accept': 'application/json',
-            'Authorization': api_key
-        }
-        
-        # 从URL下载图片内容
-        async with aiohttp.ClientSession() as session:
-            async with session.get(image_url) as response:
-                if response.status != 200:
-                    raise HTTPException(status_code=400, detail="Failed to download image")
-                file_content = await response.read()
-        
-        # 准备multipart表单数据
-        form_data = aiohttp.FormData()
-        form_data.add_field(
-            'image_file',
-            file_content,
-            filename='frame.jpg',
-            content_type='image/jpeg'
-        )
-        
-        # 发送请求
-        async with aiohttp.ClientSession() as session:
-            async with session.post(url, headers=headers, data=form_data) as response:
-                if response.content_type != 'application/json':
-                    error_text = await response.text()
-                    raise HTTPException(
-                        status_code=response.status,
-                        detail=f"Unexpected response type: {response.content_type}. Error: {error_text}"
-                    )
-                
-                result = await response.json()
-                return result
-                
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e)) 

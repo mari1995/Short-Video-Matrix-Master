@@ -1,39 +1,26 @@
 <template>
   <div class="video-analysis">
-    <el-card class="upload-card">
-      <div class="upload-area">
-        <el-upload
-          class="upload-component"
-          drag
-          :action="`${API_URL}/api/v1/video-analysis/upload`"
-          :headers="uploadHeaders"
-          :before-upload="beforeUpload"
-          :on-success="handleUploadSuccess"
-          :on-error="handleUploadError"
-          accept="video/*"
-        >
-          <i class="el-icon-upload"></i>
-          <div class="el-upload__text">
-            将视频拖到此处，或<em>点击上传</em>
-          </div>
-          <div class="el-upload__tip" slot="tip">只能上传视频文件</div>
-        </el-upload>
+    <el-card class="box-card">
+      <div slot="header">
+        <span>上传视频</span>
       </div>
+      <el-upload
+        class="upload-demo"
+        :http-request="handleCustomUpload"
+        :before-upload="beforeUpload"
+        accept="video/*"
+        :show-file-list="false"
+      >
+        <el-button size="small" type="primary">点击上传</el-button>
+        <div slot="tip" class="el-upload__tip">只能上传视频文件</div>
+      </el-upload>
     </el-card>
 
-    <!-- 分析列表 -->
-    <el-card class="analysis-list">
+    <el-card class="box-card analysis-list">
       <div slot="header">
         <span>分析记录</span>
-        <el-button 
-          style="float: right; padding: 3px 0" 
-          type="text"
-          @click="loadAnalyses"
-        >
-          刷新
-        </el-button>
       </div>
-
+      
       <el-table
         :data="analysesList"
         v-loading="loading"
@@ -106,19 +93,21 @@
           </template>
         </el-table-column>
       </el-table>
-
+      
       <div class="pagination-container">
         <el-pagination
-          @current-change="handlePageChange"
-          :current-page.sync="currentPage"
+          @size-change="handleSizeChange"
+          @current-change="handleCurrentChange"
+          :current-page="currentPage"
+          :page-sizes="[10, 20, 30, 50]"
           :page-size="pageSize"
-          layout="total, prev, pager, next"
+          layout="total, sizes, prev, pager, next"
           :total="total"
-        />
+        >
+        </el-pagination>
       </div>
     </el-card>
 
-    <!-- 分析结果对话框 -->
     <el-dialog
       title="视频分析结果"
       :visible.sync="showAnalysis"
@@ -126,7 +115,6 @@
       class="analysis-dialog"
     >
       <div v-if="currentAnalysis" class="analysis-content">
-        <!-- 视频基本信息 -->
         <el-descriptions title="视频信息" :column="3" border>
           <el-descriptions-item label="文件名">{{ currentAnalysis.file_name }}</el-descriptions-item>
           <el-descriptions-item label="分辨率">{{ currentAnalysis.resolution }}</el-descriptions-item>
@@ -140,7 +128,6 @@
           </el-descriptions-item>
         </el-descriptions>
 
-        <!-- 关键帧列表 -->
         <div v-if="currentAnalysis.frames_data" class="frames-grid">
           <h3>关键帧 ({{ currentAnalysis.frames_data.length }})</h3>
           <el-row :gutter="20">
@@ -189,7 +176,6 @@
       </div>
     </el-dialog>
 
-    <!-- 添加图片解析结果对话框 -->
     <el-dialog
       title="帧图片解析结果"
       :visible.sync="showFrameAnalysis"
@@ -233,9 +219,7 @@
 
 <script>
 import { API_URL } from '@/config/api.config'
-import { uploadVideo, getAnalysisList, getAnalysisDetail } from '@/api/video'
-import { analyzeImage } from '@/api/image'
-import { addToDrafts, addToDraftsByUrl } from '@/api/drafts'  // 导入草稿箱API
+import { videoApi, imageApi, draftApi } from '@/api'  // 修改导入方式
 
 export default {
   name: 'VideoAnalysis',
@@ -262,29 +246,11 @@ export default {
     this.loadAnalyses()
   },
   methods: {
-    beforeUpload(file) {
-      const isVideo = file.type.startsWith('video/')
-      if (!isVideo) {
-        this.$message.error('只能上传视频文件！')
-        return false
-      }
-      return true
-    },
-    
-    handleUploadSuccess(response) {
-      this.$message.success('上传成功，开始分析视频')
-      this.loadAnalyses()
-    },
-    
-    handleUploadError(err) {
-      this.$message.error('上传失败：' + err.message)
-    },
-    
     async loadAnalyses() {
       this.loading = true
       try {
         const skip = (this.currentPage - 1) * this.pageSize
-        const response = await getAnalysisList({
+        const response = await videoApi.getAnalysisList({
           skip,
           limit: this.pageSize
         })
@@ -297,20 +263,76 @@ export default {
       }
     },
     
-    handlePageChange(page) {
-      this.currentPage = page
-      this.loadAnalyses()
-    },
-    
     async viewAnalysis(analysis) {
       try {
-        const response = await getAnalysisDetail(analysis.id)
-        console.log('Analysis detail:', response.data)  // 添加日志
+        const response = await videoApi.getAnalysisDetail(analysis.id)
+        console.log('Analysis detail:', response.data)
         this.currentAnalysis = response.data
         this.showAnalysis = true
       } catch (error) {
-        console.error('Error fetching analysis:', error)  // 添加错误日志
+        console.error('Error fetching analysis:', error)
         this.$message.error('获取分析结果失败')
+      }
+    },
+    
+    async handleAnalyzeFrame(frame) {
+      if (frame.descriptions) {
+        this.currentFrame = { ...frame }
+        this.showFrameAnalysis = true
+        return
+      }
+
+      this.$set(frame, 'analyzing', true)
+      
+      try {
+        const result = await imageApi.analyzeImage({
+          image_url: frame.url  // 使用正确的数据结构
+        })
+        this.$set(frame, 'descriptions', result.data.descriptions)
+        this.currentFrame = { ...frame }
+        this.showFrameAnalysis = true
+      } catch (error) {
+        this.$message.error(error.response?.data?.detail || '图片解析失败')
+      } finally {
+        this.$set(frame, 'analyzing', false)
+      }
+    },
+    
+    async addToDrafts(frame) {
+      this.$set(frame, 'addingToDrafts', true)
+      try {
+        const formData = new FormData()
+        formData.append('source_url', frame.url)
+        formData.append('title', `视频帧 ${frame.frame_number} - ${this.currentAnalysis.file_name}`)
+        
+        let description = frame.descriptions?.length > 0 
+          ? frame.descriptions[0].text 
+          : `来自视频 ${this.currentAnalysis.file_name} 的第 ${frame.frame_number} 帧`
+        formData.append('description', description)
+        
+        await draftApi.addToDraftsByUrl(formData)
+        this.$message.success('已添加到草稿箱')
+      } catch (error) {
+        console.error('Add to drafts error:', error)
+        this.$message.error(error.response?.data?.detail || '添加到草稿箱失败')
+      } finally {
+        this.$set(frame, 'addingToDrafts', false)
+      }
+    },
+    
+    async handleDelete(analysis) {
+      try {
+        await this.$confirm('确定要删除这条分析记录吗？', '提示', {
+          type: 'warning'
+        })
+        
+        await videoApi.deleteAnalysis(analysis.id)
+        this.$message.success('删除成功')
+        this.loadAnalyses()
+      } catch (error) {
+        if (error !== 'cancel') {
+          this.$message.error('删除失败')
+        }
       }
     },
     
@@ -398,25 +420,6 @@ export default {
         return 'square'
       }
     },
-    
-    async analyzeFrame(frame) {
-      this.analyzing = true
-      try {
-        const response = await this.$axios.post('/api/v1/video-analysis/analyze-frame', {
-          image_path: frame.image_path
-        })
-        
-        // 将解析结果添加到帧数据中
-        this.$set(frame, 'descriptions', response.data.descriptions)
-        
-        this.$message.success('解析成功')
-      } catch (error) {
-        this.$message.error(error.response?.data?.detail || '解析失败')
-      } finally {
-        this.analyzing = false
-      }
-    },
-    
     copyDescription(text) {
       navigator.clipboard.writeText(text).then(() => {
         this.$message({
@@ -436,29 +439,6 @@ export default {
       return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`
     },
     
-    async handleAnalyzeFrame(frame) {
-      if (frame.descriptions) {
-        this.currentFrame = { ...frame }
-        this.showFrameAnalysis = true
-        return
-      }
-
-      this.$set(frame, 'analyzing', true)
-      
-      try {
-        // 直接传递图片URL
-        const result = await analyzeImage(frame.url)
-        this.$set(frame, 'descriptions', result.data.descriptions)
-        this.currentFrame = { ...frame }
-        this.showFrameAnalysis = true
-        
-      } catch (error) {
-        this.$message.error(error.response?.data?.detail || '图片解析失败')
-      } finally {
-        this.$set(frame, 'analyzing', false)
-      }
-    },
-    
     handleDialogClose() {
       // 对话框关闭时更新时间戳
       this.timestamp = Date.now()
@@ -470,33 +450,6 @@ export default {
       this.$message.error('图片加载失败')
     },
     
-    async addToDrafts(frame) {
-      this.$set(frame, 'addingToDrafts', true)
-      try {
-        const formData = new FormData()
-        formData.append('source_url', frame.url)
-        formData.append('title', `视频帧 ${frame.frame_number} - ${this.currentAnalysis.file_name}`)
-        
-        // 如果有图片描述，使用描述作为草稿描述
-        let description = ''
-        if (frame.descriptions && frame.descriptions.length > 0) {
-          description = frame.descriptions[0].text
-        } else {
-          description = `来自视频 ${this.currentAnalysis.file_name} 的第 ${frame.frame_number} 帧`
-        }
-        formData.append('description', description)
-        
-        // 调用通过URL添加的接口
-        await addToDraftsByUrl(formData)
-        this.$message.success('已添加到草稿箱')
-      } catch (error) {
-        console.error('Add to drafts error:', error)
-        this.$message.error(error.response?.data?.detail || '添加到草稿箱失败')
-      } finally {
-        this.$set(frame, 'addingToDrafts', false)
-      }
-    },
-    
     handleAnalysisDialogClose() {
       // 清理当前分析数据
       this.currentAnalysis = null
@@ -506,23 +459,35 @@ export default {
       this.currentFrame = null
     },
     
-    async handleDelete(analysis) {
+    handleCustomUpload({ file }) {
       try {
-        await this.$confirm('确定要删除这条分析记录吗？', '提示', {
-          confirmButtonText: '确定',
-          cancelButtonText: '取消',
-          type: 'warning'
-        })
+        const formData = new FormData()
+        formData.append('file', file)
         
-        await deleteAnalysis(analysis.id)
-        this.$message.success('删除成功')
-        this.loadAnalyses()  // 重新加载列表
-        
+        const response = videoApi.uploadVideo(formData)
+        this.handleUploadSuccess(response)
       } catch (error) {
-        if (error !== 'cancel') {
-          this.$message.error(error.response?.data?.detail || '删除失败')
-        }
+        this.handleUploadError(error)
       }
+    },
+    
+    handleUploadSuccess(response) {
+      this.$message.success('上传成功，开始分析视频')
+      this.loadAnalyses()
+    },
+    
+    handleUploadError(err) {
+      this.$message.error('上传失败：' + (err.response?.data?.detail || err.message))
+    },
+    
+    beforeUpload(file) {
+      // 验证文件类型
+      const isVideo = file.type.startsWith('video/')
+      if (!isVideo) {
+        this.$message.error('只能上传视频文件!')
+        return false
+      }
+      return true
     },
     
     onFrameImageLoad(event, frame) {
@@ -532,6 +497,14 @@ export default {
       if (wrapper) {
         wrapper.style.paddingBottom = `${aspectRatio * 100}%`
       }
+    },
+    handleSizeChange(val) {
+      this.pageSize = val
+      this.loadAnalyses()
+    },
+    handleCurrentChange(val) {
+      this.currentPage = val
+      this.loadAnalyses()
     }
   }
 }
@@ -544,11 +517,11 @@ export default {
   background-color: #f0f2f5;
 }
 
-.upload-card {
+.box-card {
   margin-bottom: 20px;
 }
 
-.upload-area {
+.upload-demo {
   display: flex;
   justify-content: center;
   padding: 20px;

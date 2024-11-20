@@ -19,14 +19,14 @@ def get_password_hash(password: str) -> str:
     """获取密码哈希值"""
     return pwd_context.hash(password)
 
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(user_id: int, expires_delta: Optional[timedelta] = None):
     """
     创建访问令牌
-    :param data: 要编码的数据
+    :param user_id: 用户ID
     :param expires_delta: 过期时间增量
     :return: 编码后的JWT令牌
     """
-    to_encode = data.copy()
+    to_encode = {"sub": str(user_id)}  # 使用用户ID作为subject
     
     # 设置过期时间
     if expires_delta:
@@ -42,15 +42,16 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     
     return encoded_jwt
 
-def verify_token(token: str) -> dict:
+def verify_token(token: str) -> Optional[int]:
     """
     验证令牌
     :param token: JWT令牌
-    :return: 解码后的数据
+    :return: 用户ID或None
     """
     try:
         # 解码并验证令牌
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload
-    except JWTError:
+        user_id = int(payload.get("sub"))  # 获取用户ID
+        return user_id
+    except (JWTError, ValueError):
         return None

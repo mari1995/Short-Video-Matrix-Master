@@ -157,8 +157,7 @@
 </template>
 
 <script>
-import { generateVideo, getGenerateStatus, getGenerateHistory } from '@/api/video-editor'
-
+import videoEditorApi from '@/api/index'
 export default {
   name: 'VideoEditor',
   data() {
@@ -214,7 +213,7 @@ export default {
         // 添加视频设置
         formData.append('settings', JSON.stringify(this.videoSettings))
         
-        const response = await generateVideo(formData)
+        const response = await videoEditorApi.generateVideo(formData)
         this.$message.success('开始生成视频')
         this.loadHistory()
       } catch (error) {
@@ -227,7 +226,7 @@ export default {
     async loadHistory() {
       this.loading = true
       try {
-        const response = await getGenerateHistory({
+        const response = await videoEditorApi.getGenerateHistory({
           skip: (this.currentPage - 1) * this.pageSize,
           limit: this.pageSize
         })

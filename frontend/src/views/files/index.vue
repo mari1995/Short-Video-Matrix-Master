@@ -139,8 +139,7 @@
 </template>
 
 <script>
-import { getFileList, deleteFile, downloadFile, analyzeImage } from '@/api/files'
-
+import {fileApi,imageApi} from '@/api/index'
 export default {
   name: 'FileManager',
   data() {
@@ -182,7 +181,7 @@ export default {
     async loadFiles() {
       this.loading = true
       try {
-        const response = await getFileList({ path: this.currentPath })
+        const response = await fileApi.getFileList({ path: this.currentPath })
         this.fileList = response.data.items
       } catch (error) {
         this.$message.error('加载文件列表失败')
@@ -255,7 +254,7 @@ export default {
           type: 'warning'
         })
         
-        await deleteFile(file.path)
+        await fileApi.deleteFile(file.path)
         this.$message.success('删除成功')
         this.loadFiles()
       } catch (error) {
@@ -297,23 +296,11 @@ export default {
     },
     
     async handleAnalyzeImage(file) {
-      this.analyzing = file.path
-      try {
-        const formData = new FormData()
-        const response = await fetch(file.url)
-        const blob = await response.blob()
-        formData.append('image_file', blob, file.name)
-        
-        const result = await analyzeImage(formData)
+        console.log(file)
+        const result = await imageApi.analyzeImage({"image_url":process.env.VUE_APP_BASE_API + file.path})
         this.analysisResult = result.data
         this.currentAnalyzedFile = file
         this.showAnalysisResult = true
-        
-      } catch (error) {
-        this.$message.error(error.response?.data?.detail || '图片解析失败')
-      } finally {
-        this.analyzing = null
-      }
     },
     
     copyDescription(text) {

@@ -31,7 +31,7 @@
             @click="handleDownload"
             :loading="downloading"
           >
-            下载MP4
+            下载视频
           </el-button>
         </el-input>
       </div>
@@ -237,14 +237,7 @@
 </template>
 
 <script>
-import { 
-  getVideoInfo, 
-  downloadVideo, 
-  getDownloadList, 
-  getDownloadStatus, 
-  cancelDownload 
-} from '@/api/youtube'
-import { getDownloadHistory, getHistoryDetail, deleteHistory, getDownloadUrl, downloadToLocal as downloadToLocalUtil } from '@/api/youtube-history'
+import { youtubeApi } from '@/api'
 
 export default {
   name: 'YoutubeDownloader',
@@ -279,7 +272,7 @@ export default {
 
       this.loading = true
       try {
-        const response = await this.$axios.get(`/api/v1/youtube/info?url=${this.youtubeUrl}`)
+        const response = await youtubeApi.getVideoInfo(this.youtubeUrl)
         this.videoInfo = response.data
         
         // 如果是Shorts视频，显示提示
@@ -310,7 +303,14 @@ export default {
       this.downloadStatus = '正在下载...'
 
       try {
-        const response = await downloadVideo(this.youtubeUrl)
+        // 确保已登录
+        if (!this.$store.state.user.token) {
+          this.$message.error('请先登录')
+          this.$router.push('/login')
+          return
+        }
+
+        const response = await youtubeApi.downloadVideo(this.youtubeUrl)
         
         // 处理下载进度信息
         if (response.data.progress) {
@@ -401,7 +401,7 @@ export default {
     async loadHistory() {
       this.historyLoading = true
       try {
-        const response = await getDownloadHistory({
+        const response = await youtubeApi.getHistory({
           skip: (this.currentPage - 1) * this.pageSize,
           limit: this.pageSize
         })
@@ -465,7 +465,7 @@ export default {
 }
 </script>
 
-<style scoped>
+<style lang="scss" scoped>
 .youtube-downloader {
   padding: 20px;
   height: 100%;

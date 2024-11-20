@@ -1,16 +1,18 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text
+from sqlalchemy import Column, Integer, String, DateTime, Text, ForeignKey
 from sqlalchemy.sql import func
 from app.db.models.base_model import BaseModel
 
 class Draft(BaseModel):
+    """草稿箱模型"""
     __tablename__ = "drafts"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     title = Column(String(255))
-    source_url = Column(String(1024))  # 原始图片URL
-    file_url = Column(String(1024))    # 保存后的文件URL
-    file_type = Column(String(50))     # 文件类型：image, video 等
-    description = Column(Text, nullable=True)
+    source_url = Column(String(1024))
+    file_url = Column(String(1024))
+    file_type = Column(String(50))
+    description = Column(Text)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

@@ -1,18 +1,20 @@
-from sqlalchemy import Column, Integer, String, DateTime, Text, Float, JSON
+from sqlalchemy import Column, Integer, String, DateTime, Text, Float, JSON, ForeignKey
 from sqlalchemy.sql import func
 from app.db.models.base_model import BaseModel
 
 class VideoGeneration(BaseModel):
+    """视频生成记录模型"""
     __tablename__ = "video_generations"
 
     id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
     title = Column(String(255))
-    status = Column(String(50))  # processing, completed, failed
+    status = Column(String(50))
     duration = Column(Float)
     transition = Column(String(50))
     output_url = Column(String(1024))
-    error_message = Column(Text, nullable=True)
-    source_images = Column(JSON)  # 修改这里，使用 JSON 而不是 JSONB
+    error_message = Column(Text)
+    source_images = Column(JSON)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
 

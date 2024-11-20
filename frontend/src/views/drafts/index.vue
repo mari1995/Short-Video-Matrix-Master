@@ -158,17 +158,14 @@
 </template>
 
 <script>
-import { API_URL } from '@/config/api.config'
-import { getDraftsList, deleteDraft } from '@/api/drafts'
+import { draftApi } from '@/api'
 
 export default {
   name: 'Drafts',
   data() {
     return {
-      API_URL,
-      loading: false,
-      uploading: false,
       draftsList: [],
+      loading: false,
       currentPage: 1,
       pageSize: 10,
       total: 0,
@@ -193,7 +190,7 @@ export default {
     async loadDrafts() {
       this.loading = true
       try {
-        const response = await getDraftsList({
+        const response = await draftApi.getDraftsList({
           skip: (this.currentPage - 1) * this.pageSize,
           limit: this.pageSize
         })
@@ -260,17 +257,11 @@ export default {
 
     async handleDelete(draft) {
       try {
-        await this.$confirm('确定要删除这个草稿吗？', '提示', {
-          type: 'warning'
-        })
-        
-        await deleteDraft(draft.id)
+        await draftApi.deleteDraft(draft.id)
         this.$message.success('删除成功')
         this.loadDrafts()
       } catch (error) {
-        if (error !== 'cancel') {
-          this.$message.error('删除失败')
-        }
+        this.$message.error('删除失败')
       }
     }
   }
