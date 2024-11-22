@@ -120,5 +120,5 @@ VALUES
 
 INSERT INTO system_configs (user_id, config_key, config_value, description, is_secret)
 VALUES 
-    (1, 'openapi_api_key', 'sk-qiRbJ62llvdWtFPF74B4C398B0D049A4A5B001E9B1C18e4f', 'API密钥', FALSE)
+    (1, 'openapi_api_key', 'sk-xxxx', 'API密钥', FALSE)
 ;
